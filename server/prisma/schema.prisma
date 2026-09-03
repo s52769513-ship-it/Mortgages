@@ -1,0 +1,527 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum Role {
+  ADMIN
+  MANAGER
+  AGENT
+  VIEWER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  ON_HOLD
+  LOST
+}
+
+enum ContactMethod {
+  PHONE
+  EMAIL
+  SMS
+  WHATSAPP
+  MEETING
+}
+
+enum FileStage {
+  INTAKE
+  DOCUMENT_COLLECTION
+  BANK_SUBMISSION
+  APPRAISAL
+  APPROVAL
+  SIGNING
+  EXECUTION
+  CLOSED
+}
+
+enum FileStatus {
+  ACTIVE
+  BLOCKED
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum Urgency {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CLIENT
+  WAITING_BANK
+  WAITING_APPRAISER
+  WAITING_LAWYER
+  WAITING_OTHER
+  COMPLETED
+  CANCELLED
+  NOT_RELEVANT
+}
+
+enum TaskPriority {
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum DocumentStatus {
+  REQUIRED
+  REQUESTED
+  RECEIVED
+  UNDER_REVIEW
+  INVALID
+  MISSING
+  APPROVED
+  EXPIRED
+  NOT_RELEVANT
+}
+
+enum BankApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  MISSING_DOCS
+  APPROVED_IN_PRINCIPLE
+  APPROVED
+  REJECTED
+  EXECUTED
+}
+
+enum ProfessionalRole {
+  BANK_MANAGER
+  BANKER
+  APPRAISER
+  CLIENT_LAWYER
+  SELLER_LAWYER
+  DEVELOPER_LAWYER
+  SELLER
+  DEVELOPER
+  INSURANCE_AGENT
+  COURIER
+  ACCOUNTANT
+  OTHER_LENDER
+}
+
+enum CommunicationType {
+  EMAIL
+  PHONE
+  SMS
+  WHATSAPP
+  MEETING
+  LETTER
+}
+
+enum EntityType {
+  CLIENT
+  MORTGAGE_FILE
+  TASK
+  DOCUMENT
+  BANK_APPLICATION
+}
+
+enum ReminderChannel {
+  IN_APP
+  EMAIL
+  SMS
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  DISMISSED
+  FAILED
+}
+
+// ---------- Core ----------
+
+model Employee {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(AGENT)
+  phone     String?
+  team      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clientsOwned       Client[]        @relation("ClientOwner")
+  filesOwned         MortgageFile[]  @relation("FileOwner")
+  tasksOwned         Task[]          @relation("TaskOwner")
+  tasksParticipating Task[]          @relation("TaskParticipants")
+  tasksCreated       Task[]          @relation("TaskCreator")
+  documentsReviewed  Document[]      @relation("DocumentReviewer")
+  comments           Comment[]
+  activityLogs       ActivityLog[]
+  communications     Communication[] @relation("CommunicationAuthor")
+
+  @@index([email])
+}
+
+model Client {
+  id               String        @id @default(cuid())
+  leadStatus       LeadStatus    @default(NEW)
+  fullName         String
+  phone            String
+  email            String?
+  referralSource   String?
+  referralDate     DateTime?
+  inquiryType      String?
+  inquiryStatus    String?
+  ownerId          String?
+  preferredContact ContactMethod @default(PHONE)
+  doNotContact     Boolean       @default(false)
+  introNotes       String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  owner Employee?      @relation("ClientOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  files MortgageFile[]
+
+  @@index([leadStatus])
+  @@index([fullName])
+  @@index([phone])
+}
+
+model MortgageFile {
+  id         String  @id @default(cuid())
+  fileNumber String  @unique
+  clientId   String
+  ownerId    String?
+
+  // fee & deal
+  agencyFee       Decimal? @db.Decimal(12, 2)
+  dealType        String?
+  propertyType    String?
+  propertyAddress String?
+  purchasePrice   Decimal? @db.Decimal(14, 2)
+  propertyValue   Decimal? @db.Decimal(14, 2)
+
+  // financing
+  requestedAmount     Decimal? @db.Decimal(14, 2)
+  ltvPercent          Decimal? @db.Decimal(5, 2)
+  equity              Decimal? @db.Decimal(14, 2)
+  desiredMonthly      Decimal? @db.Decimal(12, 2)
+  requiredIncome      Decimal? @db.Decimal(12, 2)
+  borrowersIncome     Decimal? @db.Decimal(12, 2)
+  existingLiabilities String?
+
+  // dates
+  nextPaymentDate   DateTime?
+  executionDeadline DateTime?
+
+  // workflow
+  targetBankId   String?
+  stage          FileStage  @default(INTAKE)
+  status         FileStatus @default(ACTIVE)
+  urgency        Urgency    @default(NORMAL)
+  blockReason    String?
+  lastAction     String?
+  nextAction     String?
+  nextActionDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client         Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  owner          Employee?          @relation("FileOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  targetBank     Bank?              @relation(fields: [targetBankId], references: [id], onDelete: SetNull)
+  tasks          Task[]
+  documents      Document[]
+  bankApps       BankApplication[]
+  communications Communication[]
+  expenses       OfficeExpense[]
+  professionals  FileProfessional[]
+
+  @@index([clientId])
+  @@index([stage])
+  @@index([status])
+  @@index([ownerId])
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  fileId      String
+  stage       FileStage?
+  ownerId     String?
+  createdById String?
+
+  dueAt    DateTime?
+  priority TaskPriority @default(NORMAL)
+  status   TaskStatus   @default(OPEN)
+
+  triggerEvent   String?
+  dependsOnId    String?
+  waitingOn      String?
+  description    String?
+  escalationRule String?
+
+  result         String?
+  completionNote String?
+  completedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  file         MortgageFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  owner        Employee?    @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy    Employee?    @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  participants Employee[]   @relation("TaskParticipants")
+  dependsOn    Task?        @relation("TaskDependency", fields: [dependsOnId], references: [id], onDelete: SetNull)
+  dependents   Task[]       @relation("TaskDependency")
+  documents    Document[]   @relation("TaskDocuments")
+  reminders    Reminder[]
+
+  @@index([fileId])
+  @@index([status])
+  @@index([ownerId])
+  @@index([dueAt])
+}
+
+model Document {
+  id          String  @id @default(cuid())
+  docType     String
+  fileName    String
+  storagePath String?
+  mimeType    String?
+  sizeBytes   Int?
+
+  fileId   String?
+  clientId String?
+
+  periodLabel String?
+  receivedAt  DateTime?
+  expiresAt   DateTime?
+
+  status         DocumentStatus @default(REQUIRED)
+  isValid        Boolean?
+  issueNotes     String?
+  reviewedById   String?
+  version        Int            @default(1)
+  source         String?
+  notes          String?
+  allowedForBank Boolean        @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  file       MortgageFile? @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  reviewedBy Employee?     @relation("DocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  tasks      Task[]        @relation("TaskDocuments")
+
+  @@index([fileId])
+  @@index([status])
+}
+
+model Bank {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  phone     String?
+  email     String?
+  address   String?
+  swiftCode String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  branches BankBranch[]
+  files    MortgageFile[]
+  apps     BankApplication[]
+}
+
+model BankBranch {
+  id        String   @id @default(cuid())
+  bankId    String
+  name      String
+  address   String?
+  phone     String?
+  createdAt DateTime @default(now())
+
+  bank    Bank              @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  bankers Banker[]
+  apps    BankApplication[]
+
+  @@unique([bankId, name])
+}
+
+model Banker {
+  id        String   @id @default(cuid())
+  branchId  String
+  name      String
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+
+  branch BankBranch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  apps   BankApplication[]
+
+  @@unique([branchId, name])
+}
+
+model BankApplication {
+  id          String  @id @default(cuid())
+  fileId      String
+  bankId      String
+  branchId    String?
+  bankerId    String?
+  managerName String?
+
+  submittedAt      DateTime?
+  submissionMethod String?
+  requestedAmount  Decimal?  @db.Decimal(14, 2)
+  ltvPercent       Decimal?  @db.Decimal(5, 2)
+  mixNotes         String?
+  offeredRates     String?
+
+  status       BankApplicationStatus @default(DRAFT)
+  missingItems String?
+  creditCheck  String?
+
+  approvalInPrinciple Boolean   @default(false)
+  approvalDate        DateTime?
+  approvalValidUntil  DateTime?
+
+  fileOpened         Boolean   @default(false)
+  collateralReceived Boolean   @default(false)
+  sentToReview       Boolean   @default(false)
+  sentToExecution    Boolean   @default(false)
+  executedAt         DateTime?
+  rejectionReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  file   MortgageFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  bank   Bank         @relation(fields: [bankId], references: [id])
+  branch BankBranch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  banker Banker?      @relation(fields: [bankerId], references: [id], onDelete: SetNull)
+
+  @@index([fileId])
+  @@index([status])
+}
+
+model ExternalProfessional {
+  id           String           @id @default(cuid())
+  role         ProfessionalRole
+  name         String
+  phone        String?
+  email        String?
+  organization String?
+  address      String?
+  notes        String?
+  createdAt    DateTime         @default(now())
+
+  files FileProfessional[]
+
+  @@index([role])
+  @@index([name])
+}
+
+model FileProfessional {
+  fileId         String
+  professionalId String
+  roleInFile     ProfessionalRole
+  createdAt      DateTime         @default(now())
+
+  file         MortgageFile         @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  professional ExternalProfessional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@id([fileId, professionalId, roleInFile])
+}
+
+model Communication {
+  id             String            @id @default(cuid())
+  fileId         String
+  occurredAt     DateTime          @default(now())
+  authorId       String?
+  direction      String?
+  counterparty   String?
+  type           CommunicationType
+  subject        String?
+  summary        String?
+  body           String?
+  followUpTaskId String?
+
+  createdAt DateTime @default(now())
+
+  file   MortgageFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  author Employee?    @relation("CommunicationAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([fileId])
+  @@index([occurredAt])
+}
+
+// Generic internal chat — attaches to any entity
+model Comment {
+  id         String     @id @default(cuid())
+  entityType EntityType
+  entityId   String
+  authorId   String
+  body       String
+  editedAt   DateTime?
+  createdAt  DateTime   @default(now())
+
+  author Employee @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId, createdAt])
+}
+
+model ActivityLog {
+  id         String     @id @default(cuid())
+  entityType EntityType
+  entityId   String
+  actorId    String?
+  action     String
+  field      String?
+  oldValue   String?
+  newValue   String?
+  createdAt  DateTime   @default(now())
+
+  actor Employee? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([createdAt])
+}
+
+model OfficeExpense {
+  id        String   @id @default(cuid())
+  fileId    String
+  amount    Decimal  @db.Decimal(12, 2)
+  details   String
+  spentAt   DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  file MortgageFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([fileId])
+}
+
+model Reminder {
+  id        String          @id @default(cuid())
+  taskId    String
+  channel   ReminderChannel @default(IN_APP)
+  remindAt  DateTime
+  message   String?
+  status    ReminderStatus  @default(PENDING)
+  sentAt    DateTime?
+  createdAt DateTime        @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([status, remindAt])
+}
