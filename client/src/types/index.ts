@@ -121,7 +121,7 @@ export type BankApplication = {
   file?: TaskFileRef
   bankId: string
   bank?: { id: string; name: string }
-  branch?: { id: string; name: string } | null
+  branch?: { id: string; name: string; code?: string | null } | null
   banker?: { id: string; name: string } | null
   status: string
   submittedAt: string | null

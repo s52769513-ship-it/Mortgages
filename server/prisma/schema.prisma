@@ -331,6 +331,8 @@ model Document {
 model Bank {
   id        String   @id @default(cuid())
   name      String   @unique
+  /// Bank of Israel institution code, when the record came from the official list.
+  code      String?  @unique
   phone     String?
   email     String?
   address   String?
@@ -347,6 +349,9 @@ model BankBranch {
   id        String   @id @default(cuid())
   bankId    String
   name      String
+  /// Branch number as the bank and the client both refer to it, e.g. "641".
+  code      String?
+  city      String?
   address   String?
   phone     String?
   createdAt DateTime @default(now())
@@ -356,6 +361,8 @@ model BankBranch {
   apps    BankApplication[]
 
   @@unique([bankId, name])
+  @@unique([bankId, code])
+  @@index([bankId, city])
 }
 
 model Banker {

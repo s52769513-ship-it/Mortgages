@@ -12,7 +12,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "migrate": "prisma migrate deploy",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "import:banks": "tsx prisma/importBanks.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",

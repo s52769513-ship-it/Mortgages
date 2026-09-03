@@ -32,6 +32,7 @@ import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
 import { InternalChat } from '@/components/InternalChat'
 import { ActivityFeed } from '@/components/ActivityFeed'
+import { BankApplicationModal } from '@/components/BankApplicationModal'
 
 const TAB_IDS = ['tasks', 'details', 'documents', 'banks', 'chat', 'log'] as const
 
@@ -43,6 +44,7 @@ export function FileDetailPage() {
   // Tasks first: this is a daily work screen, not a record view.
   const [tab, setTab] = useState<(typeof TAB_IDS)[number]>('tasks')
   const [stageFilter, setStageFilter] = useState<Stage | null>(null)
+  const [applying, setApplying] = useState(false)
 
   const {
     data: file,
@@ -116,7 +118,7 @@ export function FileDetailPage() {
               <Plus className="size-4" />
               משימה חדשה
             </Button>
-            <Button>הגש בקשה לבנק</Button>
+            <Button onClick={() => setApplying(true)}>הגש בקשה לבנק</Button>
             </div>
           </div>
 
@@ -334,20 +336,34 @@ export function FileDetailPage() {
                   icon={<Building2 className="size-7" />}
                   title="עוד לא הוגשה בקשה לבנק"
                   description="לכל בנק נפתחת בקשה נפרדת, כך שאפשר להשוות הצעות זו מול זו."
-                  action={<Button>בקשה חדשה לבנק</Button>}
+                  action={<Button onClick={() => setApplying(true)}>בקשה חדשה לבנק</Button>}
                 />
               ) : (
-                <div className="overflow-x-auto px-7 py-5">
+                <div className="px-7 py-5">
+                  <div className="mb-4 flex justify-end">
+                    <Button size="sm" variant="secondary" onClick={() => setApplying(true)}>
+                      <Plus className="size-4" />
+                      בקשה נוספת
+                    </Button>
+                  </div>
+                  <div className="overflow-x-auto">
                   <table className="w-full min-w-[520px] text-right">
                     <thead>
                       <tr className="border-b border-hair text-[12px] font-semibold text-ink-muted">
                         <th className="py-3 font-semibold">בנק וסניף</th>
                         {bankApps.map((app) => (
                           <th key={app.id} className="py-3 font-semibold">
-                            {app.bank?.name}
+                            <span>{app.bank?.name}</span>
                             {app.branch && (
-                              <span className="numeric ms-1 text-ink-subtle" dir="ltr">
-                                · {app.branch.name}
+                              <span className="font-normal text-ink-muted">
+                                {' · '}
+                                {app.branch.name}
+                                {app.branch.code && (
+                                  <span className="numeric" dir="ltr">
+                                    {' '}
+                                    {app.branch.code}
+                                  </span>
+                                )}
                               </span>
                             )}
                           </th>
@@ -407,6 +423,7 @@ export function FileDetailPage() {
                       </tr>
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
             </TabPanel>
@@ -479,6 +496,12 @@ export function FileDetailPage() {
           </aside>
         </div>
       </Card>
+
+      <BankApplicationModal
+        fileId={file.id}
+        open={applying}
+        onClose={() => setApplying(false)}
+      />
     </div>
   )
 }

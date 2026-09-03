@@ -221,15 +221,3 @@ bankAppsRouter.delete(
     res.status(204).end()
   }),
 )
-
-/** Feeds the type-ahead on the bank/branch/banker fields. */
-bankAppsRouter.get(
-  '/directory/banks',
-  handler(async (_req, res) => {
-    const banks = await prisma.bank.findMany({
-      include: { branches: { include: { bankers: true }, orderBy: { name: 'asc' } } },
-      orderBy: { name: 'asc' },
-    })
-    res.json(banks)
-  }),
-)
