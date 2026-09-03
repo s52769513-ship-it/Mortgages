@@ -1,0 +1,484 @@
+import { useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  Building2,
+  FileText,
+  ListChecks,
+  MessageSquare,
+  Plus,
+  Unlock,
+  Upload,
+} from 'lucide-react'
+import { api } from '@/api/client'
+import { cn } from '@/lib/cn'
+import { date, isOverdue, money, percent, relative, time } from '@/lib/format'
+import {
+  BANK_APP_STATUS,
+  DOCUMENT_STATUS,
+  FILE_STAGE,
+  FILE_STATUS,
+  labelOf,
+  TASK_STATUS,
+  type Stage,
+} from '@/lib/labels'
+import type { MortgageFile } from '@/types'
+import { Badge, RAILS } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { FactRow, Tabs, TabPanel } from '@/components/ui/Tabs'
+import { CompactStepper, FileStepper } from '@/components/ui/Stepper'
+import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
+import { useToast } from '@/components/ui/Toast'
+import { InternalChat } from '@/components/InternalChat'
+import { ActivityFeed } from '@/components/ActivityFeed'
+
+const TAB_IDS = ['tasks', 'details', 'documents', 'banks', 'chat', 'log'] as const
+
+export function FileDetailPage() {
+  const { id = '' } = useParams()
+  const { notify } = useToast()
+  const queryClient = useQueryClient()
+
+  // Tasks first: this is a daily work screen, not a record view.
+  const [tab, setTab] = useState<(typeof TAB_IDS)[number]>('tasks')
+  const [stageFilter, setStageFilter] = useState<Stage | null>(null)
+
+  const {
+    data: file,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['file', id],
+    queryFn: () => api.get<MortgageFile>(`/files/${id}`),
+  })
+
+  const unblock = useMutation({
+    mutationFn: () => api.patch<MortgageFile>(`/files/${id}`, { status: 'ACTIVE', blockReason: null }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['file', id] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      notify('החסימה הוסרה')
+    },
+    onError: (e: Error) => notify('הסרת החסימה נכשלה', { tone: 'error', detail: e.message }),
+  })
+
+  if (error) return <ErrorState message="לא הצלחנו לטעון את התיק." onRetry={() => refetch()} />
+
+  if (isLoading || !file) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-20 rounded-lg" />
+        <Skeleton className="h-14 rounded-lg" />
+        <Skeleton className="h-96 rounded-lg" />
+      </div>
+    )
+  }
+
+  const blocked = file.status === 'BLOCKED'
+  const tasks = file.tasks ?? []
+  const documents = file.documents ?? []
+  const bankApps = file.bankApps ?? []
+
+  const visibleTasks = stageFilter ? tasks.filter((t) => t.stage === stageFilter) : tasks
+  const visibleDocs = documents
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        {/* Sticky header: file number, client, status, one primary action. */}
+        <div className="sticky top-16 z-20 rounded-t-lg bg-surface">
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-hair px-7 py-4">
+          <div className="min-w-0">
+            <p className="eyebrow text-[12px] text-steel-600" dir="ltr">
+              File {file.fileNumber}
+              {file.dealType && <span className="normal-case"> · {file.dealType}</span>}
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-4">
+              <Link
+                to={`/clients/${file.clientId}`}
+                className="font-heading text-[28px] font-bold leading-tight text-ink underline-offset-4 hover:underline"
+              >
+                {file.client?.fullName}
+              </Link>
+              <Badge tone={labelOf(FILE_STATUS, file.status).tone}>
+                {labelOf(FILE_STATUS, file.status).label}
+              </Badge>
+              {file.owner && (
+                <span className="text-[14px] text-ink-muted">אחראי: {file.owner.name}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-4">
+            <Button variant="secondary">
+              <Plus className="size-4" />
+              משימה חדשה
+            </Button>
+            <Button>הגש בקשה לבנק</Button>
+            </div>
+          </div>
+
+          {blocked && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hair bg-urgent-tint px-7 py-3">
+              <p className="text-[14px] font-medium text-urgent-ink">
+                התיק חסום{file.blockReason ? ` — ${file.blockReason}` : ''}
+              </p>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={unblock.isPending}
+                loadingLabel="מסיר…"
+                onClick={() => unblock.mutate()}
+              >
+                <Unlock className="size-4" />
+                הסר חסימה
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* The stepper doubles as navigation: a step filters the lists below. */}
+        <div className="border-b border-hair px-7 py-4">
+          <div className="hidden md:block">
+            <FileStepper
+              current={file.stage}
+              blocked={blocked}
+              blockReason={file.blockReason}
+              selected={stageFilter}
+              onSelect={setStageFilter}
+            />
+          </div>
+          <div className="md:hidden">
+            <CompactStepper current={file.stage} />
+          </div>
+          {stageFilter && (
+            <p className="mt-3 text-[13px] text-ink-muted">
+              מסונן לשלב <strong className="font-semibold">{FILE_STAGE[stageFilter].label}</strong>{' '}
+              ·{' '}
+              <button
+                onClick={() => setStageFilter(null)}
+                className="font-medium text-steel-700 underline underline-offset-[3px]"
+              >
+                הצג את כל השלבים
+              </button>
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 overflow-hidden rounded-b-lg xl:grid-cols-[1fr_340px]">
+          <div className="min-w-0 xl:border-e xl:border-hair">
+            <Tabs
+              tabs={[
+                { id: 'tasks', label: 'משימות', count: visibleTasks.length },
+                { id: 'details', label: 'פרטים' },
+                { id: 'documents', label: 'מסמכים', count: documents.length },
+                { id: 'banks', label: 'בנקים', count: bankApps.length },
+                { id: 'chat', label: 'צ׳אט פנימי' },
+                { id: 'log', label: 'יומן' },
+              ]}
+              active={tab}
+              onChange={(id) => setTab(id as (typeof TAB_IDS)[number])}
+            />
+
+            <TabPanel when="tasks" active={tab}>
+              {!visibleTasks.length ? (
+                <EmptyState
+                  icon={<ListChecks className="size-7" />}
+                  title={stageFilter ? 'אין משימות בשלב הזה' : 'התיק עדיין ללא משימות'}
+                  description={
+                    stageFilter
+                      ? 'אף משימה לא משויכת לשלב שנבחר. אפשר להציג את כל השלבים.'
+                      : 'משימה מגדירה מי עושה מה ועד מתי — היא מה שמזיז את התיק קדימה.'
+                  }
+                  action={
+                    <Button>
+                      <Plus className="size-4" />
+                      משימה חדשה
+                    </Button>
+                  }
+                />
+              ) : (
+                <ul>
+                  {visibleTasks.map((task, i) => {
+                    const tone = labelOf(TASK_STATUS, task.status).tone
+                    const overdue = isOverdue(task.dueAt) && task.status !== 'COMPLETED'
+                    return (
+                      <li
+                        key={task.id}
+                        className={cn(
+                          'flex items-center gap-4 border-e-4 px-7 py-3.5',
+                          'transition-colors duration-micro ease-standard hover:bg-ink/[0.04]',
+                          i < visibleTasks.length - 1 && 'border-b border-b-row',
+                          RAILS[overdue ? 'urgent' : tone],
+                        )}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[15px] font-medium text-ink">{task.title}</p>
+                          <p className="mt-0.5 truncate text-[13px] text-ink-muted">
+                            {task.owner?.name ?? 'ללא אחראי'}
+                            {task.waitingOn && ` · ממתין ל${task.waitingOn}`}
+                            {task.completedAt
+                              ? ` · הושלמה ${date(task.completedAt)}`
+                              : task.dueAt
+                                ? ` · יעד ${date(task.dueAt)} ${time(task.dueAt)}`
+                                : ''}
+                          </p>
+                        </div>
+                        <Badge tone={overdue ? 'urgent' : tone}>
+                          {overdue ? 'חריגה' : labelOf(TASK_STATUS, task.status).label}
+                        </Badge>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </TabPanel>
+
+            <TabPanel when="details" active={tab} className="px-7 py-5">
+              <div className="grid gap-8 md:grid-cols-2">
+                <section>
+                  <h3 className="eyebrow mb-3 text-[12px] text-ink-muted" dir="ltr">
+                    Property
+                  </h3>
+                  <dl className="divide-y divide-row">
+                    <FactRow label="סוג עסקה" value={file.dealType} />
+                    <FactRow label="סוג הנכס" value={file.propertyType} />
+                    <FactRow label="כתובת" value={file.propertyAddress} />
+                    <FactRow
+                      label="מחיר רכישה"
+                      value={<span className="numeric" dir="ltr">{money(file.purchasePrice)}</span>}
+                    />
+                    <FactRow
+                      label="שווי הנכס"
+                      value={<span className="numeric" dir="ltr">{money(file.propertyValue)}</span>}
+                    />
+                  </dl>
+                </section>
+
+                <section>
+                  <h3 className="eyebrow mb-3 text-[12px] text-ink-muted" dir="ltr">
+                    Financing
+                  </h3>
+                  <dl className="divide-y divide-row">
+                    <FactRow
+                      label="הון עצמי"
+                      value={<span className="numeric" dir="ltr">{money(file.equity)}</span>}
+                    />
+                    <FactRow
+                      label="החזר חודשי רצוי"
+                      value={<span className="numeric" dir="ltr">{money(file.desiredMonthly)}</span>}
+                    />
+                    <FactRow
+                      label="הכנסות הלווים"
+                      value={<span className="numeric" dir="ltr">{money(file.borrowersIncome)}</span>}
+                    />
+                    <FactRow label="התחייבויות קיימות" value={file.existingLiabilities} />
+                    <FactRow
+                      label="מועד אחרון לביצוע"
+                      value={<span className="numeric" dir="ltr">{date(file.executionDeadline)}</span>}
+                    />
+                  </dl>
+                </section>
+              </div>
+            </TabPanel>
+
+            <TabPanel when="documents" active={tab}>
+              {!visibleDocs.length ? (
+                <EmptyState
+                  icon={<FileText className="size-7" />}
+                  title="התיק עדיין ריק ממסמכים"
+                  description="בלי מסמכים אי אפשר להגיש לבנק. אפשר להעלות מסמך או לבקש אותו מהלקוח."
+                  action={
+                    <Button>
+                      <Upload className="size-4" />
+                      העלה מסמך
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="grid gap-px bg-hair sm:grid-cols-2">
+                  {visibleDocs.map((doc) => {
+                    const tone = labelOf(DOCUMENT_STATUS, doc.status).tone
+                    return (
+                      <article
+                        key={doc.id}
+                        className={cn(
+                          'flex flex-col gap-2.5 border-t-4 bg-surface px-6 py-5',
+                          RAILS[tone],
+                        )}
+                      >
+                        <h4 className="text-[15px] font-medium text-ink">{doc.docType}</h4>
+                        <p className="text-[13px] text-ink-muted">
+                          גרסה <span className="numeric" dir="ltr">{doc.version}</span>
+                          {doc.issueNotes
+                            ? ` · ${doc.issueNotes}`
+                            : doc.receivedAt
+                              ? ` · התקבל ${date(doc.receivedAt)}`
+                              : ''}
+                        </p>
+                        <Badge tone={tone} className="self-start">
+                          {labelOf(DOCUMENT_STATUS, doc.status).label}
+                        </Badge>
+                      </article>
+                    )
+                  })}
+                </div>
+              )}
+            </TabPanel>
+
+            <TabPanel when="banks" active={tab}>
+              {!bankApps.length ? (
+                <EmptyState
+                  icon={<Building2 className="size-7" />}
+                  title="עוד לא הוגשה בקשה לבנק"
+                  description="לכל בנק נפתחת בקשה נפרדת, כך שאפשר להשוות הצעות זו מול זו."
+                  action={<Button>בקשה חדשה לבנק</Button>}
+                />
+              ) : (
+                <div className="overflow-x-auto px-7 py-5">
+                  <table className="w-full min-w-[520px] text-right">
+                    <thead>
+                      <tr className="border-b border-hair text-[12px] font-semibold text-ink-muted">
+                        <th className="py-3 font-semibold">בנק וסניף</th>
+                        {bankApps.map((app) => (
+                          <th key={app.id} className="py-3 font-semibold">
+                            {app.bank?.name}
+                            {app.branch && (
+                              <span className="numeric ms-1 text-ink-subtle" dir="ltr">
+                                · {app.branch.name}
+                              </span>
+                            )}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-row text-[14px]">
+                      <tr>
+                        <td className="py-3.5 text-ink-muted">סטטוס</td>
+                        {bankApps.map((app) => (
+                          <td key={app.id} className="py-3.5">
+                            <Badge tone={labelOf(BANK_APP_STATUS, app.status).tone}>
+                              {labelOf(BANK_APP_STATUS, app.status).label}
+                            </Badge>
+                          </td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="py-3.5 text-ink-muted">סכום מבוקש</td>
+                        {bankApps.map((app) => (
+                          <td key={app.id} className="numeric py-3.5" dir="ltr">
+                            {money(app.requestedAmount)}
+                          </td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="py-3.5 text-ink-muted">אחוז מימון</td>
+                        {bankApps.map((app) => (
+                          <td key={app.id} className="numeric py-3.5" dir="ltr">
+                            {percent(app.ltvPercent)}
+                          </td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="py-3.5 text-ink-muted">ריבית מוצעת</td>
+                        {bankApps.map((app) => (
+                          <td key={app.id} className="py-3.5 text-ink">
+                            {app.offeredRates || '—'}
+                          </td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="py-3.5 text-ink-muted">תוקף האישור</td>
+                        {bankApps.map((app) => (
+                          <td key={app.id} className="numeric py-3.5 text-wait-ink" dir="ltr">
+                            {app.approvalValidUntil ? date(app.approvalValidUntil) : '—'}
+                          </td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="py-3.5 text-ink-muted">חוסרים</td>
+                        {bankApps.map((app) => (
+                          <td key={app.id} className="py-3.5 text-[13px] text-ink-muted">
+                            {app.missingItems || 'אין'}
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </TabPanel>
+
+            <TabPanel when="chat" active={tab}>
+              <InternalChat entityType="MORTGAGE_FILE" entityId={file.id} className="h-[560px]" />
+            </TabPanel>
+
+            <TabPanel when="log" active={tab}>
+              <ActivityFeed entityType="MORTGAGE_FILE" entityId={file.id} />
+            </TabPanel>
+          </div>
+
+          {/* Side rail — the answer to "where does this file stand" without scrolling. */}
+          <aside className="flex flex-col gap-4 px-6 py-5">
+            <section>
+              <h3 className="eyebrow mb-2 text-[12px] text-ink-muted" dir="ltr">
+                File facts
+              </h3>
+              <dl>
+                <FactRow
+                  label="מחיר רכישה"
+                  value={<span className="numeric" dir="ltr">{money(file.purchasePrice)}</span>}
+                />
+                <FactRow
+                  label="סכום משכנתא"
+                  value={<span className="numeric" dir="ltr">{money(file.requestedAmount)}</span>}
+                />
+                <FactRow
+                  label="אחוז מימון"
+                  value={<span className="numeric" dir="ltr">{percent(file.ltvPercent)}</span>}
+                />
+                <FactRow
+                  label="הון עצמי"
+                  value={<span className="numeric" dir="ltr">{money(file.equity)}</span>}
+                />
+              </dl>
+            </section>
+
+            <section className="border-t border-hair pt-3">
+              <h3 className="eyebrow mb-2 text-[12px] text-ink-muted" dir="ltr">
+                People
+              </h3>
+              <dl>
+                <FactRow label="אחראי מוביל" value={file.owner?.name} />
+                <FactRow label="בנק יעד" value={file.targetBank?.name} />
+                {file.professionals?.length
+                  ? null
+                  : <FactRow label="אנשי מקצוע" value="טרם שויכו" />}
+              </dl>
+            </section>
+
+            {file.nextAction && (
+              <section className="mt-auto border border-steel-600 bg-busy-tint px-4 py-3">
+                <p className="eyebrow text-[12px] text-steel-700" dir="ltr">
+                  Next action
+                </p>
+                <p className="mt-1 text-[14px] font-medium leading-snug text-steel-800">
+                  {file.nextAction}
+                </p>
+                {file.nextActionDate && (
+                  <p className="numeric mt-1.5 text-[13px] text-steel-700" dir="ltr">
+                    {isOverdue(file.nextActionDate)
+                      ? `באיחור · ${relative(file.nextActionDate)}`
+                      : `יעד ${date(file.nextActionDate)}`}
+                  </p>
+                )}
+              </section>
+            )}
+          </aside>
+        </div>
+      </Card>
+    </div>
+  )
+}

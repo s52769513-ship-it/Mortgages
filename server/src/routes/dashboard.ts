@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { TaskStatus } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { handler } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -6,13 +7,7 @@ import { requireAuth } from '../middleware/auth.js'
 export const dashboardRouter = Router()
 dashboardRouter.use(requireAuth)
 
-const endOfToday = () => {
-  const d = new Date()
-  d.setHours(23, 59, 59, 999)
-  return d
-}
-
-const OPEN_TASK_STATES = [
+const OPEN_TASK_STATES: TaskStatus[] = [
   'OPEN',
   'IN_PROGRESS',
   'WAITING_CLIENT',
@@ -20,72 +15,78 @@ const OPEN_TASK_STATES = [
   'WAITING_APPRAISER',
   'WAITING_LAWYER',
   'WAITING_OTHER',
-] as const
+]
 
+const endOfToday = () => {
+  const d = new Date()
+  d.setHours(23, 59, 59, 999)
+  return d
+}
+
+/** Four metrics, each one a link into the list it summarises. */
 dashboardRouter.get(
   '/',
   handler(async (req, res) => {
     const userId = req.user!.id
+    const now = new Date()
     const today = endOfToday()
 
-    const [
-      activeFiles,
-      blockedFiles,
-      openTasks,
-      overdueTasks,
-      pendingDocs,
-      dueToday,
-      recentFiles,
-      stageBreakdown,
-    ] = await Promise.all([
-      prisma.mortgageFile.count({ where: { status: 'ACTIVE' } }),
-      prisma.mortgageFile.count({ where: { status: 'BLOCKED' } }),
-      prisma.task.count({ where: { status: { in: [...OPEN_TASK_STATES] } } }),
-      prisma.task.count({
-        where: { status: { in: [...OPEN_TASK_STATES] }, dueAt: { lt: new Date() } },
-      }),
-      prisma.document.count({
-        where: { status: { in: ['REQUIRED', 'REQUESTED', 'UNDER_REVIEW', 'MISSING', 'INVALID'] } },
-      }),
-      prisma.task.findMany({
-        where: {
-          status: { in: [...OPEN_TASK_STATES] },
-          dueAt: { lte: today },
-          OR: [{ ownerId: userId }, { participants: { some: { id: userId } } }],
-        },
-        include: {
-          file: {
-            select: {
-              id: true,
-              fileNumber: true,
-              client: { select: { fullName: true } },
+    const [tasksToday, overdueTasks, activeFiles, waitingOnBank, dueToday, blockedFiles, activity] =
+      await Promise.all([
+        prisma.task.count({
+          where: { status: { in: OPEN_TASK_STATES }, dueAt: { lte: today } },
+        }),
+        prisma.task.count({
+          where: { status: { in: OPEN_TASK_STATES }, dueAt: { lt: now } },
+        }),
+        prisma.mortgageFile.count({ where: { status: 'ACTIVE' } }),
+        prisma.task.count({ where: { status: 'WAITING_BANK' } }),
+
+        prisma.task.findMany({
+          where: {
+            status: { in: OPEN_TASK_STATES },
+            dueAt: { lte: today },
+            OR: [{ ownerId: userId }, { participants: { some: { id: userId } } }],
+          },
+          include: {
+            owner: { select: { id: true, name: true } },
+            file: {
+              select: { id: true, fileNumber: true, client: { select: { fullName: true } } },
             },
           },
-        },
-        orderBy: [{ priority: 'desc' }, { dueAt: 'asc' }],
-        take: 25,
-      }),
-      prisma.mortgageFile.findMany({
-        where: { status: { in: ['ACTIVE', 'BLOCKED'] } },
-        include: {
-          client: { select: { id: true, fullName: true } },
-          owner: { select: { id: true, name: true } },
-        },
-        orderBy: { updatedAt: 'desc' },
-        take: 8,
-      }),
-      prisma.mortgageFile.groupBy({
-        by: ['stage'],
-        where: { status: { in: ['ACTIVE', 'BLOCKED'] } },
-        _count: { _all: true },
-      }),
-    ])
+          orderBy: [{ priority: 'desc' }, { dueAt: 'asc' }],
+          take: 8,
+        }),
+
+        prisma.mortgageFile.findMany({
+          where: { status: 'BLOCKED' },
+          include: { client: { select: { fullName: true } } },
+          orderBy: { updatedAt: 'asc' },
+          take: 6,
+        }),
+
+        prisma.activityLog.findMany({
+          include: { actor: { select: { id: true, name: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 6,
+        }),
+      ])
 
     res.json({
-      kpis: { activeFiles, blockedFiles, openTasks, overdueTasks, pendingDocs },
+      kpis: { tasksToday, overdueTasks, activeFiles, waitingOnBank },
       dueToday,
-      recentFiles,
-      stageBreakdown: stageBreakdown.map((s) => ({ stage: s.stage, count: s._count._all })),
+      // "6D · missing documents" — how long each block has been standing.
+      blockedFiles: blockedFiles.map((file) => ({
+        id: file.id,
+        fileNumber: file.fileNumber,
+        clientName: file.client.fullName,
+        reason: file.blockReason,
+        daysBlocked: Math.max(
+          0,
+          Math.floor((now.getTime() - file.updatedAt.getTime()) / 86_400_000),
+        ),
+      })),
+      activity,
     })
   }),
 )

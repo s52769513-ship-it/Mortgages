@@ -94,11 +94,159 @@ async function main() {
           fileId: file.id,
           ownerId: admin.id,
           createdById: admin.id,
-          stage: 'APPRAISAL',
+          stage: 'COLLATERAL',
           status: 'OPEN',
           priority: 'NORMAL',
           dueAt: new Date(Date.now() + 7 * 864e5),
         },
+      ],
+    })
+  }
+
+  // A second file that is stuck, so the blocked-files panel has something real.
+  const blockedClient = await prisma.client.upsert({
+    where: { id: 'seed-client-2' },
+    update: {},
+    create: {
+      id: 'seed-client-2',
+      fullName: 'מיכל ברק',
+      phone: '052-441-9087',
+      email: 'michal@example.com',
+      leadStatus: 'CONTACTED',
+      referralSource: 'המלצת עו״ד',
+      ownerId: admin.id,
+    },
+  })
+
+  const blockedFile = await prisma.mortgageFile.upsert({
+    where: { fileNumber: 'MF-2026-0002' },
+    update: {},
+    create: {
+      fileNumber: 'MF-2026-0002',
+      clientId: blockedClient.id,
+      ownerId: admin.id,
+      dealType: 'מחזור משכנתא',
+      propertyType: 'דירה',
+      propertyAddress: 'שדרות ירושלים 42, רמת גן',
+      purchasePrice: 2_150_000,
+      requestedAmount: 1_450_000,
+      ltvPercent: 67,
+      equity: 700_000,
+      stage: 'BANK_SUBMISSION',
+      status: 'BLOCKED',
+      urgency: 'CRITICAL',
+      blockReason: 'חסרים מסמכים',
+      nextAction: 'הגשת חבילת מסמכים לבנק מרכנתיל',
+      nextActionDate: new Date(Date.now() + 864e5),
+    },
+  })
+
+  if ((await prisma.task.count({ where: { fileId: blockedFile.id } })) === 0) {
+    await prisma.task.createMany({
+      data: [
+        {
+          title: 'השלמת תדפיסי בנק',
+          fileId: blockedFile.id,
+          ownerId: admin.id,
+          createdById: admin.id,
+          stage: 'DOCUMENT_COLLECTION',
+          status: 'WAITING_CLIENT',
+          priority: 'URGENT',
+          dueAt: new Date(Date.now() - 6 * 864e5),
+          waitingOn: 'הלקוח',
+        },
+        {
+          title: 'הגשת בקשה — בנק מרכנתיל',
+          fileId: blockedFile.id,
+          ownerId: admin.id,
+          createdById: admin.id,
+          stage: 'BANK_SUBMISSION',
+          status: 'IN_PROGRESS',
+          priority: 'HIGH',
+          dueAt: new Date(new Date().setHours(16, 0, 0, 0)),
+        },
+      ],
+    })
+  }
+
+  if ((await prisma.document.count({ where: { fileId: blockedFile.id } })) === 0) {
+    await prisma.document.createMany({
+      data: [
+        {
+          docType: 'תלושי שכר · 3 חודשים',
+          fileName: 'payslips.pdf',
+          fileId: blockedFile.id,
+          status: 'APPROVED',
+          isValid: true,
+          version: 1,
+          receivedAt: new Date(Date.now() - 5 * 864e5),
+          allowedForBank: true,
+        },
+        {
+          docType: 'תדפיסי חשבון',
+          fileName: 'statements.pdf',
+          fileId: blockedFile.id,
+          status: 'UNDER_REVIEW',
+          version: 2,
+          receivedAt: new Date(Date.now() - 2 * 864e5),
+        },
+        {
+          docType: 'נסח טאבו',
+          fileName: 'tabu.pdf',
+          fileId: blockedFile.id,
+          status: 'INVALID',
+          isValid: false,
+          issueNotes: 'חסר עמוד שני',
+          version: 1,
+        },
+        {
+          docType: 'אישור הון עצמי',
+          fileName: '',
+          fileId: blockedFile.id,
+          status: 'REQUESTED',
+          version: 1,
+          issueNotes: 'ממתין ללקוח',
+        },
+      ],
+    })
+  }
+
+  if ((await prisma.bankApplication.count({ where: { fileId: blockedFile.id } })) === 0) {
+    const mercantile = await prisma.bank.upsert({
+      where: { name: 'בנק מרכנתיל' },
+      update: {},
+      create: { name: 'בנק מרכנתיל' },
+    })
+    const leumi = await prisma.bank.findFirst({ where: { name: 'בנק לאומי' } })
+
+    await prisma.bankApplication.createMany({
+      data: [
+        {
+          fileId: blockedFile.id,
+          bankId: mercantile.id,
+          status: 'UNDER_REVIEW',
+          requestedAmount: 1_450_000,
+          ltvPercent: 67,
+          offeredRates: '4.9% · מסלול קבוע',
+          missingItems: '2 מסמכים',
+          submittedAt: new Date(Date.now() - 3 * 864e5),
+        },
+        ...(leumi
+          ? [
+              {
+                fileId: blockedFile.id,
+                bankId: leumi.id,
+                status: 'APPROVED_IN_PRINCIPLE' as const,
+                requestedAmount: 1_400_000,
+                ltvPercent: 65,
+                offeredRates: '4.7% · תמהיל',
+                approvalInPrinciple: true,
+                approvalDate: new Date(Date.now() - 864e5),
+                approvalValidUntil: new Date(Date.now() + 27 * 864e5),
+                submittedAt: new Date(Date.now() - 4 * 864e5),
+              },
+            ]
+          : []),
       ],
     })
   }

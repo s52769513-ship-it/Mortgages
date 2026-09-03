@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /*
+   * Tokens transcribed from the "Industry" visual spec. Four state colours
+   * only — every task, document, file and bank-application status collapses
+   * into one of them for display. Each state carries a base (rails, dots),
+   * a tint (chip fill) and an ink (text on that tint).
+   */
+  :root {
+    --paper: 242 242 243;
+    --surface: 255 255 255;
+    --surface-raised: 233 233 234;
+    --surface-hover: 29 31 32;
+
+    --line: 29 31 32;
+
+    --ink: 29 31 32;
+    --ink-muted: 93 93 96;
+    --ink-faint: 122 122 125;
+    --ink-subtle: 152 152 155;
+
+    --steel-900: 29 45 61;
+    --steel-800: 44 69 93;
+    --steel-700: 65 97 128;
+    --steel-600: 89 128 166;
+    --steel-500: 116 157 196;
+    --steel-400: 148 188 227;
+    --steel-300: 181 217 253;
+    --steel-200: 214 235 255;
+    --steel-100: 238 246 255;
+
+    --ok: 78 122 94;
+    --ok-tint: 231 238 233;
+    --ok-ink: 47 74 57;
+
+    --busy: 89 128 166;
+    --busy-tint: 228 236 244;
+    --busy-ink: 44 69 93;
+
+    --wait: 176 129 73;
+    --wait-tint: 245 236 224;
+    --wait-ink: 107 77 36;
+
+    --urgent: 163 90 82;
+    --urgent-tint: 243 229 227;
+    --urgent-ink: 103 51 45;
+
+    --neutral-rail: 183 183 186;
+    --skeleton: 236 238 240;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-paper text-ink font-sans text-[15px] antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+
+  /*
+   * File numbers, sums, dates and Latin system labels. Always LTR — a file
+   * number or phone number must never be reversed by the RTL context.
+   */
+  .numeric {
+    font-family: 'Barlow Condensed', system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+  }
+  .eyebrow {
+    font-family: 'Barlow Condensed', system-ui, sans-serif;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* Accessibility rule 03: 2px steel focus ring, 2px offset, never removed. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--steel-600));
+    outline-offset: 2px;
+  }
+
+  /* Motion rule: reduced-motion keeps the colour change, drops the movement. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-property: color, background-color, border-color, fill, stroke !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  .skeleton {
+    background: rgb(var(--skeleton));
+    border-radius: 6px;
+    animation: skelpulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes skelpulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}

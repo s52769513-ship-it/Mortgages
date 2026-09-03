@@ -33,15 +33,14 @@ enum ContactMethod {
   MEETING
 }
 
+/// The six pipeline steps the file stepper renders, in order.
 enum FileStage {
   INTAKE
   DOCUMENT_COLLECTION
   BANK_SUBMISSION
-  APPRAISAL
-  APPROVAL
-  SIGNING
+  APPROVAL_IN_PRINCIPLE
+  COLLATERAL
   EXECUTION
-  CLOSED
 }
 
 enum FileStatus {
