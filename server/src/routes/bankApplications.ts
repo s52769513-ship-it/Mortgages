@@ -35,6 +35,7 @@ const appSchema = z.object({
   sentToExecution: z.boolean().optional(),
   executedAt: z.coerce.date().nullish(),
   rejectionReason: z.string().nullish(),
+  isChosen: z.boolean().optional(),
 })
 
 const LIST_INCLUDE = {
@@ -119,7 +120,7 @@ bankAppsRouter.get(
       prisma.bankApplication.findMany({
         where,
         include: LIST_INCLUDE,
-        orderBy: [{ updatedAt: 'desc' }],
+        orderBy: [{ isChosen: 'desc' }, { updatedAt: 'desc' }],
         take: Math.min(Number(take) || 100, 200),
         skip: Number(skip) || 0,
       }),
@@ -175,6 +176,15 @@ bankAppsRouter.patch(
       ? await resolveContacts({ bankName, branchName, bankerName, bankerPhone, bankerEmail })
       : {}
 
+    // Choosing one offer un-chooses whichever held it before, so a file never
+    // shows two banks as the one that was taken.
+    if (rest.isChosen === true) {
+      await prisma.bankApplication.updateMany({
+        where: { fileId: before.fileId, isChosen: true, id: { not: before.id } },
+        data: { isChosen: false },
+      })
+    }
+
     const application = await prisma.bankApplication.update({
       where: { id: req.params.id },
       data: { ...rest, ...contacts },
@@ -195,6 +205,15 @@ bankAppsRouter.patch(
         entityId: application.fileId,
         actorId: req.user!.id,
         action: `${application.bank.name} — סטטוס הבקשה עודכן`,
+      })
+    }
+
+    if (rest.isChosen === true && !before.isChosen) {
+      await logActivity({
+        entityType: 'MORTGAGE_FILE',
+        entityId: application.fileId,
+        actorId: req.user!.id,
+        action: `נבחר הבנק — ${application.bank.name}`,
       })
     }
 

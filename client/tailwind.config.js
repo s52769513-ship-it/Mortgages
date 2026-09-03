@@ -6,7 +6,6 @@ export default {
       fontFamily: {
         sans: ['Assistant', 'system-ui', 'sans-serif'],
         heading: ['Heebo', 'system-ui', 'sans-serif'],
-        condensed: ['Barlow Condensed', 'system-ui', 'sans-serif'],
       },
       colors: {
         paper: 'rgb(var(--paper) / <alpha-value>)',

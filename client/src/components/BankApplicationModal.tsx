@@ -70,6 +70,7 @@ export function BankApplicationModal({
     onSuccess: (application) => {
       queryClient.invalidateQueries({ queryKey: ['file', fileId] })
       queryClient.invalidateQueries({ queryKey: ['bank-applications'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       notify('הבקשה נוצרה', { detail: application.bank?.name })
       setForm(BLANK)
       setTouched(false)

@@ -33,6 +33,7 @@ export function DashboardPage() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => api.get<Dashboard>('/dashboard'),
+    refetchOnMount: 'always',
   })
 
   if (error) {

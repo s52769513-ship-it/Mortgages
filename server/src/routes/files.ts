@@ -111,7 +111,7 @@ filesRouter.get(
         documents: { orderBy: { createdAt: 'desc' } },
         bankApps: {
           include: { bank: true, branch: true, banker: true },
-          orderBy: { createdAt: 'desc' },
+          orderBy: [{ isChosen: 'desc' }, { createdAt: 'desc' }],
         },
         expenses: { orderBy: { spentAt: 'desc' } },
         professionals: { include: { professional: true } },

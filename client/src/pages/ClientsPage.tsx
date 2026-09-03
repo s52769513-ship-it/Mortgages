@@ -50,6 +50,7 @@ function NewClientModal({ open, onClose }: { open: boolean; onClose: () => void 
     mutationFn: () => api.post<Client>('/clients', form),
     onSuccess: (client) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       notify('הליד נוצר', {
         detail: client.fullName,
         action: { label: 'פתח את הכרטיס', onClick: () => navigate(`/clients/${client.id}`) },
@@ -107,7 +108,6 @@ function NewClientModal({ open, onClose }: { open: boolean; onClose: () => void 
           />
           <Input
             label="מקור הפנייה"
-            hint="המלצה, אתר, פייסבוק, לקוח חוזר"
             value={form.referralSource}
             onChange={(e) => setForm({ ...form, referralSource: e.target.value })}
           />

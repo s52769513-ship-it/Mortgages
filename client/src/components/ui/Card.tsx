@@ -10,7 +10,7 @@ export function Card({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
   )
 }
 
-/** Barlow eyebrow → Heebo title → muted meta, per the card anatomy. */
+/** Eyebrow → title → muted meta, per the card anatomy. */
 export function CardHeader({
   eyebrow,
   title,

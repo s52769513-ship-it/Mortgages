@@ -6,6 +6,7 @@ import {
   FileText,
   ListChecks,
   MessageSquare,
+  Pencil,
   Plus,
   Unlock,
   Upload,
@@ -22,7 +23,7 @@ import {
   TASK_STATUS,
   type Stage,
 } from '@/lib/labels'
-import type { MortgageFile } from '@/types'
+import type { MortgageFile, Task } from '@/types'
 import { Badge, RAILS } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -33,6 +34,10 @@ import { useToast } from '@/components/ui/Toast'
 import { InternalChat } from '@/components/InternalChat'
 import { ActivityFeed } from '@/components/ActivityFeed'
 import { BankApplicationModal } from '@/components/BankApplicationModal'
+import { BankApplicationRows } from '@/components/BankApplicationRows'
+import { NewTaskModal } from '@/components/NewTaskModal'
+import { EditFileModal } from '@/components/EditFileModal'
+import { TaskOverlay } from '@/components/TaskOverlay'
 
 const TAB_IDS = ['tasks', 'details', 'documents', 'banks', 'chat', 'log'] as const
 
@@ -45,6 +50,9 @@ export function FileDetailPage() {
   const [tab, setTab] = useState<(typeof TAB_IDS)[number]>('tasks')
   const [stageFilter, setStageFilter] = useState<Stage | null>(null)
   const [applying, setApplying] = useState(false)
+  const [addingTask, setAddingTask] = useState(false)
+  const [editingFile, setEditingFile] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
 
   const {
     data: file,
@@ -114,7 +122,11 @@ export function FileDetailPage() {
           </div>
 
           <div className="flex shrink-0 items-center gap-4">
-            <Button variant="secondary">
+            <Button variant="secondary" onClick={() => setEditingFile(true)}>
+              <Pencil className="size-4" />
+              ערוך תיק
+            </Button>
+            <Button variant="secondary" onClick={() => setAddingTask(true)}>
               <Plus className="size-4" />
               משימה חדשה
             </Button>
@@ -195,7 +207,7 @@ export function FileDetailPage() {
                       : 'משימה מגדירה מי עושה מה ועד מתי — היא מה שמזיז את התיק קדימה.'
                   }
                   action={
-                    <Button>
+                    <Button onClick={() => setAddingTask(true)}>
                       <Plus className="size-4" />
                       משימה חדשה
                     </Button>
@@ -207,10 +219,12 @@ export function FileDetailPage() {
                     const tone = labelOf(TASK_STATUS, task.status).tone
                     const overdue = isOverdue(task.dueAt) && task.status !== 'COMPLETED'
                     return (
-                      <li
-                        key={task.id}
+                      <li key={task.id}>
+                      <button
+                        type="button"
+                        onClick={() => setEditingTask(task)}
                         className={cn(
-                          'flex items-center gap-4 border-s-4 px-7 py-3.5',
+                          'flex w-full items-center gap-4 border-s-4 px-7 py-3.5 text-right',
                           'transition-colors duration-micro ease-standard hover:bg-ink/[0.04]',
                           i < visibleTasks.length - 1 && 'border-b border-b-row',
                           RAILS[tone],
@@ -231,6 +245,7 @@ export function FileDetailPage() {
                         <Badge tone={overdue ? 'urgent' : tone}>
                           {overdue ? 'חריגה' : labelOf(TASK_STATUS, task.status).label}
                         </Badge>
+                      </button>
                       </li>
                     )
                   })}
@@ -339,92 +354,15 @@ export function FileDetailPage() {
                   action={<Button onClick={() => setApplying(true)}>בקשה חדשה לבנק</Button>}
                 />
               ) : (
-                <div className="px-7 py-5">
-                  <div className="mb-4 flex justify-end">
+                <>
+                  <div className="flex justify-end border-b border-hair px-7 py-3">
                     <Button size="sm" variant="secondary" onClick={() => setApplying(true)}>
                       <Plus className="size-4" />
                       בקשה נוספת
                     </Button>
                   </div>
-                  <div className="overflow-x-auto">
-                  <table className="w-full min-w-[520px] text-right">
-                    <thead>
-                      <tr className="border-b border-hair text-[12px] font-semibold text-ink-muted">
-                        <th className="py-3 font-semibold">בנק וסניף</th>
-                        {bankApps.map((app) => (
-                          <th key={app.id} className="py-3 font-semibold">
-                            <span>{app.bank?.name}</span>
-                            {app.branch && (
-                              <span className="font-normal text-ink-muted">
-                                {' · '}
-                                {app.branch.name}
-                                {app.branch.code && (
-                                  <span className="numeric" dir="ltr">
-                                    {' '}
-                                    {app.branch.code}
-                                  </span>
-                                )}
-                              </span>
-                            )}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-row text-[14px]">
-                      <tr>
-                        <td className="py-3.5 text-ink-muted">סטטוס</td>
-                        {bankApps.map((app) => (
-                          <td key={app.id} className="py-3.5">
-                            <Badge tone={labelOf(BANK_APP_STATUS, app.status).tone}>
-                              {labelOf(BANK_APP_STATUS, app.status).label}
-                            </Badge>
-                          </td>
-                        ))}
-                      </tr>
-                      <tr>
-                        <td className="py-3.5 text-ink-muted">סכום מבוקש</td>
-                        {bankApps.map((app) => (
-                          <td key={app.id} className="numeric py-3.5" dir="ltr">
-                            {money(app.requestedAmount)}
-                          </td>
-                        ))}
-                      </tr>
-                      <tr>
-                        <td className="py-3.5 text-ink-muted">אחוז מימון</td>
-                        {bankApps.map((app) => (
-                          <td key={app.id} className="numeric py-3.5" dir="ltr">
-                            {percent(app.ltvPercent)}
-                          </td>
-                        ))}
-                      </tr>
-                      <tr>
-                        <td className="py-3.5 text-ink-muted">ריבית מוצעת</td>
-                        {bankApps.map((app) => (
-                          <td key={app.id} className="py-3.5 text-ink">
-                            {app.offeredRates || '—'}
-                          </td>
-                        ))}
-                      </tr>
-                      <tr>
-                        <td className="py-3.5 text-ink-muted">תוקף האישור</td>
-                        {bankApps.map((app) => (
-                          <td key={app.id} className="numeric py-3.5 text-wait-ink" dir="ltr">
-                            {app.approvalValidUntil ? date(app.approvalValidUntil) : '—'}
-                          </td>
-                        ))}
-                      </tr>
-                      <tr>
-                        <td className="py-3.5 text-ink-muted">חוסרים</td>
-                        {bankApps.map((app) => (
-                          <td key={app.id} className="py-3.5 text-[13px] text-ink-muted">
-                            {app.missingItems || 'אין'}
-                          </td>
-                        ))}
-                      </tr>
-                    </tbody>
-                  </table>
-                  </div>
-                </div>
+                  <BankApplicationRows applications={bankApps} fileId={file.id} />
+                </>
               )}
             </TabPanel>
 
@@ -501,6 +439,24 @@ export function FileDetailPage() {
         fileId={file.id}
         open={applying}
         onClose={() => setApplying(false)}
+      />
+
+      {addingTask && (
+        <NewTaskModal
+          fileId={file.id}
+          fileNumber={file.fileNumber}
+          defaultStage={stageFilter ?? file.stage}
+          open
+          onClose={() => setAddingTask(false)}
+        />
+      )}
+
+      {editingFile && <EditFileModal file={file} open onClose={() => setEditingFile(false)} />}
+
+      <TaskOverlay
+        task={editingTask}
+        open={Boolean(editingTask)}
+        onClose={() => setEditingTask(null)}
       />
     </div>
   )

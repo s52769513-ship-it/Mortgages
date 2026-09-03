@@ -146,12 +146,16 @@ export function DataTable<T extends { id: string }>({
                 </span>
               ))}
 
+              {/* Floats over the row's last columns, so it carries its own
+                  ground rather than blending with the cell beneath it. */}
               {rowActions && (
                 <span
                   className={cn(
-                    'absolute inset-y-0 left-4 flex items-center gap-1 opacity-0',
-                    'transition-opacity duration-micro ease-standard',
-                    'group-hover:opacity-100 group-focus-within:opacity-100',
+                    'absolute inset-y-1 left-3 flex items-center gap-2 rounded-md',
+                    'bg-surface px-3 shadow-raised',
+                    'pointer-events-none opacity-0 transition-opacity duration-micro ease-standard',
+                    'group-hover:pointer-events-auto group-hover:opacity-100',
+                    'group-focus-within:pointer-events-auto group-focus-within:opacity-100',
                   )}
                 >
                   {rowActions(row)}

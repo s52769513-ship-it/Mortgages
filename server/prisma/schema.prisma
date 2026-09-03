@@ -28,8 +28,6 @@ enum LeadStatus {
 enum ContactMethod {
   PHONE
   EMAIL
-  SMS
-  WHATSAPP
   MEETING
 }
 
@@ -118,8 +116,6 @@ enum ProfessionalRole {
 enum CommunicationType {
   EMAIL
   PHONE
-  SMS
-  WHATSAPP
   MEETING
   LETTER
 }
@@ -130,6 +126,7 @@ enum EntityType {
   TASK
   DOCUMENT
   BANK_APPLICATION
+  EMPLOYEE
 }
 
 enum ReminderChannel {
@@ -278,14 +275,15 @@ model Task {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  file         MortgageFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  owner        Employee?    @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  createdBy    Employee?    @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  participants Employee[]   @relation("TaskParticipants")
-  dependsOn    Task?        @relation("TaskDependency", fields: [dependsOnId], references: [id], onDelete: SetNull)
-  dependents   Task[]       @relation("TaskDependency")
-  documents    Document[]   @relation("TaskDocuments")
+  file         MortgageFile    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  owner        Employee?       @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy    Employee?       @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  participants Employee[]      @relation("TaskParticipants")
+  dependsOn    Task?           @relation("TaskDependency", fields: [dependsOnId], references: [id], onDelete: SetNull)
+  dependents   Task[]          @relation("TaskDependency")
+  documents    Document[]      @relation("TaskDocuments")
   reminders    Reminder[]
+  followUpFor  Communication[] @relation("CommunicationFollowUp")
 
   @@index([fileId])
   @@index([status])
@@ -320,9 +318,10 @@ model Document {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  file       MortgageFile? @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  reviewedBy Employee?     @relation("DocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  tasks      Task[]        @relation("TaskDocuments")
+  file           MortgageFile?   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  reviewedBy     Employee?       @relation("DocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  tasks          Task[]          @relation("TaskDocuments")
+  communications Communication[] @relation("CommunicationAttachments")
 
   @@index([fileId])
   @@index([status])
@@ -408,6 +407,8 @@ model BankApplication {
   sentToExecution    Boolean   @default(false)
   executedAt         DateTime?
   rejectionReason    String?
+  /// The offer the client went with. At most one per file carries it.
+  isChosen           Boolean   @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -451,22 +452,29 @@ model FileProfessional {
 }
 
 model Communication {
-  id             String            @id @default(cuid())
-  fileId         String
-  occurredAt     DateTime          @default(now())
-  authorId       String?
-  direction      String?
-  counterparty   String?
-  type           CommunicationType
-  subject        String?
-  summary        String?
-  body           String?
+  id         String            @id @default(cuid())
+  fileId     String
+  occurredAt DateTime          @default(now())
+  /// The employee who recorded it, which is not necessarily either party.
+  authorId   String?
+  direction  String?
+  /// Sender and recipient are free text: the other party is often a bank or a
+  /// lawyer who has no account here.
+  sender     String?
+  recipient  String?
+  type       CommunicationType
+  subject    String?
+  summary    String?
+  body       String?
+
   followUpTaskId String?
 
   createdAt DateTime @default(now())
 
-  file   MortgageFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  author Employee?    @relation("CommunicationAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  file         MortgageFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  author       Employee?    @relation("CommunicationAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  followUpTask Task?        @relation("CommunicationFollowUp", fields: [followUpTaskId], references: [id], onDelete: SetNull)
+  attachments  Document[]   @relation("CommunicationAttachments")
 
   @@index([fileId])
   @@index([occurredAt])

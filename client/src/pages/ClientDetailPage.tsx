@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { FolderOpen, Mail, Phone } from 'lucide-react'
+import { FolderOpen, Mail, Pencil, Phone, Plus } from 'lucide-react'
 import { api } from '@/api/client'
 import { cn } from '@/lib/cn'
 import { date, money, relative } from '@/lib/format'
@@ -13,10 +13,15 @@ import { FactRow, Tabs, TabPanel } from '@/components/ui/Tabs'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { InternalChat } from '@/components/InternalChat'
 import { ActivityFeed } from '@/components/ActivityFeed'
+import { EditClientModal } from '@/components/EditClientModal'
+import { NewFileModal } from '@/components/NewFileModal'
+import { Button } from '@/components/ui/Button'
 
 export function ClientDetailPage() {
   const { id = '' } = useParams()
   const [tab, setTab] = useState('chat')
+  const [editing, setEditing] = useState(false)
+  const [openingFile, setOpeningFile] = useState(false)
 
   const {
     data: client,
@@ -68,9 +73,19 @@ export function ClientDetailPage() {
               )}
             </div>
           </div>
-          <Badge tone={labelOf(LEAD_STATUS, client.leadStatus).tone} dot>
-            {labelOf(LEAD_STATUS, client.leadStatus).label}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge tone={labelOf(LEAD_STATUS, client.leadStatus).tone} dot>
+              {labelOf(LEAD_STATUS, client.leadStatus).label}
+            </Badge>
+            <Button variant="secondary" onClick={() => setEditing(true)}>
+              <Pencil className="size-4" />
+              ערוך
+            </Button>
+            <Button onClick={() => setOpeningFile(true)}>
+              <Plus className="size-4" />
+              פתח תיק
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -117,12 +132,19 @@ export function ClientDetailPage() {
             <CardHeader
               title="תיקי משכנתא"
               subtitle={`${client.files?.length ?? 0} תיקים ללקוח זה`}
+              action={
+                <Button size="sm" variant="secondary" onClick={() => setOpeningFile(true)}>
+                  <Plus className="size-4" />
+                  תיק חדש
+                </Button>
+              }
             />
             {!client.files?.length ? (
               <EmptyState
                 icon={<FolderOpen className="size-7" />}
                 title="אין תיקים ללקוח זה"
                 description="תיק מרכז את כל מה שקשור לעסקה אחת. אותו לקוח יכול להחזיק כמה תיקים במקביל."
+                action={<Button onClick={() => setOpeningFile(true)}>פתח תיק ראשון</Button>}
               />
             ) : (
               <ul>
@@ -186,6 +208,15 @@ export function ClientDetailPage() {
           </div>
         </Card>
       </div>
+
+      {editing && <EditClientModal client={client} open onClose={() => setEditing(false)} />}
+      {openingFile && (
+        <NewFileModal
+          open
+          client={{ id: client.id, fullName: client.fullName }}
+          onClose={() => setOpeningFile(false)}
+        />
+      )}
     </div>
   )
 }

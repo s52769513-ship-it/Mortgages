@@ -134,6 +134,7 @@ export type BankApplication = {
   approvalDate: string | null
   approvalValidUntil: string | null
   rejectionReason: string | null
+  isChosen: boolean
 }
 
 export type OfficeExpense = {

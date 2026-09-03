@@ -1,19 +1,17 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { FolderOpen, Plus } from 'lucide-react'
 import { api, qs } from '@/api/client'
 import { cn } from '@/lib/cn'
 import { date, money, relative } from '@/lib/format'
 import { FILE_STAGE, FILE_STATUS, labelOf, options, URGENCY } from '@/lib/labels'
-import type { Client, MortgageFile } from '@/types'
+import type { MortgageFile } from '@/types'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Input, Select } from '@/components/ui/Field'
-import { Modal } from '@/components/ui/Modal'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
-import { useToast } from '@/components/ui/Toast'
+import { NewFileModal } from '@/components/NewFileModal'
 import {
   ActiveFilterChip,
   Column,
@@ -23,116 +21,6 @@ import {
   SearchInput,
   TableFooter,
 } from '@/components/DataTable'
-
-function NewFileModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { notify } = useToast()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const [form, setForm] = useState({
-    clientId: '',
-    dealType: '',
-    propertyType: '',
-    propertyAddress: '',
-    purchasePrice: '',
-    requestedAmount: '',
-  })
-
-  const { data: clients } = useQuery({
-    queryKey: ['clients', '', ''],
-    queryFn: () => api.get<{ items: Client[] }>('/clients?take=200'),
-    enabled: open,
-  })
-
-  const create = useMutation({
-    mutationFn: () =>
-      api.post<MortgageFile>('/files', {
-        ...form,
-        purchasePrice: form.purchasePrice || null,
-        requestedAmount: form.requestedAmount || null,
-      }),
-    onSuccess: (file) => {
-      queryClient.invalidateQueries({ queryKey: ['files'] })
-      notify('התיק נפתח', { detail: file.fileNumber })
-      onClose()
-      navigate(`/files/${file.id}`)
-    },
-    onError: (e: Error) => notify('פתיחת התיק נכשלה', { tone: 'error', detail: e.message }),
-  })
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    create.mutate()
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="תיק משכנתא חדש"
-      description="מספר התיק נוצר אוטומטית. שאר הפרטים ניתנים להשלמה בדף התיק."
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            בטל
-          </Button>
-          <Button form="new-file" type="submit" loading={create.isPending}>
-            פתח תיק
-          </Button>
-        </>
-      }
-    >
-      <form id="new-file" onSubmit={submit} className="space-y-5">
-        <Select
-          label="לקוח"
-          required
-          placeholder="בחר לקוח…"
-          options={(clients?.items ?? []).map((c) => ({ value: c.id, label: c.fullName }))}
-          value={form.clientId}
-          onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-        />
-
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Input
-            label="סוג עסקה"
-            hint="רכישת דירה, מחזור, בנייה עצמית"
-            value={form.dealType}
-            onChange={(e) => setForm({ ...form, dealType: e.target.value })}
-          />
-          <Input
-            label="סוג הנכס"
-            value={form.propertyType}
-            onChange={(e) => setForm({ ...form, propertyType: e.target.value })}
-          />
-        </div>
-
-        <Input
-          label="כתובת הנכס"
-          value={form.propertyAddress}
-          onChange={(e) => setForm({ ...form, propertyAddress: e.target.value })}
-        />
-
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Input
-            label="מחיר רכישה"
-            type="number"
-            dir="ltr"
-            className="numeric"
-            value={form.purchasePrice}
-            onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })}
-          />
-          <Input
-            label="סכום משכנתא מבוקש"
-            type="number"
-            dir="ltr"
-            className="numeric"
-            value={form.requestedAmount}
-            onChange={(e) => setForm({ ...form, requestedAmount: e.target.value })}
-          />
-        </div>
-      </form>
-    </Modal>
-  )
-}
 
 export function FilesPage() {
   const [params, setParams] = useSearchParams()

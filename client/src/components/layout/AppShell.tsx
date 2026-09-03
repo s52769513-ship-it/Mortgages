@@ -11,6 +11,7 @@ import {
   Menu,
   Plus,
   Search,
+  UserCog,
   Users,
   X,
 } from 'lucide-react'
@@ -28,6 +29,7 @@ const NAV = [
   { to: '/tasks', label: 'משימות', icon: ListChecks },
   { to: '/documents', label: 'מסמכים', icon: FileText },
   { to: '/bank-applications', label: 'בקשות לבנק', icon: Building2 },
+  { to: '/employees', label: 'משתמשים', icon: UserCog },
 ]
 
 function Sidebar({ expanded, onNavigate }: { expanded: boolean; onNavigate?: () => void }) {
@@ -74,11 +76,7 @@ function Sidebar({ expanded, onNavigate }: { expanded: boolean; onNavigate?: () 
         ))}
       </nav>
 
-      {expanded && (
-        <p className="px-5 pb-4 text-[12px] leading-relaxed text-steel-400/70">
-          הגדרות, עובדים ובנקים — בתפריט המשתמש למעלה.
-        </p>
-      )}
+
     </div>
   )
 }

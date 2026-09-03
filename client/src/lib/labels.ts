@@ -117,16 +117,12 @@ export const BANK_APP_STATUS = {
 export const CONTACT_METHOD = {
   PHONE: { label: 'טלפון', tone: 'neutral' },
   EMAIL: { label: 'אימייל', tone: 'neutral' },
-  SMS: { label: 'מסרון', tone: 'neutral' },
-  WHATSAPP: { label: 'וואטסאפ', tone: 'neutral' },
   MEETING: { label: 'פגישה', tone: 'neutral' },
 } satisfies Dict
 
 export const COMMUNICATION_TYPE = {
   EMAIL: { label: 'מייל', tone: 'neutral' },
   PHONE: { label: 'טלפון', tone: 'neutral' },
-  SMS: { label: 'מסרון', tone: 'neutral' },
-  WHATSAPP: { label: 'וואטסאפ', tone: 'neutral' },
   MEETING: { label: 'פגישה', tone: 'neutral' },
   LETTER: { label: 'מכתב', tone: 'neutral' },
 } satisfies Dict

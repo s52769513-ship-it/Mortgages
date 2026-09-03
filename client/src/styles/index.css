@@ -65,17 +65,17 @@
   }
 
   /*
-   * File numbers, sums, dates and Latin system labels. Always LTR — a file
-   * number or phone number must never be reversed by the RTL context.
+   * File numbers, sums and dates. Tabular figures so columns of numbers line
+   * up, in the body face rather than a condensed one — the same digits the
+   * rest of the interface uses. Always LTR: a file or phone number must not
+   * be reversed by the RTL context.
    */
   .numeric {
-    font-family: 'Barlow Condensed', system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.06em;
+    letter-spacing: 0;
   }
   .eyebrow {
-    font-family: 'Barlow Condensed', system-ui, sans-serif;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
   }
 

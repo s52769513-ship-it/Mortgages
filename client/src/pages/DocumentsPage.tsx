@@ -34,6 +34,7 @@ function ReviewActions({ doc }: { doc: Doc }) {
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['documents'] })
       queryClient.invalidateQueries({ queryKey: ['file'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       notify(`${updated.docType} — ${labelOf(DOCUMENT_STATUS, updated.status).label}`)
     },
     onError: (e: Error) => notify('עדכון המסמך נכשל', { tone: 'error', detail: e.message }),
