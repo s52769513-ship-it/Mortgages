@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  ArrowLeft,
   Building2,
   FileText,
   ListChecks,
@@ -76,6 +77,21 @@ export function FileDetailPage() {
   } = useQuery({
     queryKey: ['file', id],
     queryFn: () => api.get<MortgageFile>(`/files/${id}`),
+  })
+
+  // Clicking a step filters, which is cheap and reversible. Actually moving the
+  // file is a real change that lands in the log, so it takes a second,
+  // deliberate click rather than happening on the first one.
+  const moveStage = useMutation({
+    mutationFn: (stage: Stage) => api.patch<MortgageFile>(`/files/${id}`, { stage }),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['file', id] })
+      queryClient.invalidateQueries({ queryKey: ['files'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      setStageFilter(null)
+      notify(`התיק הועבר לשלב ${FILE_STAGE[updated.stage as Stage]?.label ?? updated.stage}`)
+    },
+    onError: (e: Error) => notify('שינוי השלב נכשל', { tone: 'error', detail: e.message }),
   })
 
   const unblock = useMutation({
@@ -182,16 +198,32 @@ export function FileDetailPage() {
             <CompactStepper current={file.stage} />
           </div>
           {stageFilter && (
-            <p className="mt-3 text-[13px] text-ink-muted">
-              מסונן לשלב <strong className="font-semibold">{FILE_STAGE[stageFilter].label}</strong>{' '}
-              ·{' '}
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-ink-muted">
+              <span>
+                מסונן לשלב{' '}
+                <strong className="font-semibold">{FILE_STAGE[stageFilter].label}</strong>
+              </span>
+
+              {stageFilter !== file.stage && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={moveStage.isPending}
+                  loadingLabel="מעביר…"
+                  onClick={() => moveStage.mutate(stageFilter)}
+                >
+                  <ArrowLeft className="size-4" />
+                  העבר את התיק לשלב זה
+                </Button>
+              )}
+
               <button
                 onClick={() => setStageFilter(null)}
                 className="font-medium text-steel-700 underline underline-offset-[3px]"
               >
                 הצג את כל השלבים
               </button>
-            </p>
+            </div>
           )}
         </div>
 
