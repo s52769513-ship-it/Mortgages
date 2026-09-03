@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell } from 'lucide-react'
+import { Bell, Volume2, VolumeX } from 'lucide-react'
 import { api } from '@/api/client'
+import { playChime, soundPreference } from '@/lib/chime'
 import { cn } from '@/lib/cn'
 import { relative } from '@/lib/format'
 import type { Notification } from '@/types'
@@ -25,13 +26,35 @@ export function NotificationBell() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  const [muted, setMuted] = useState(soundPreference.muted)
+  const [ringing, setRinging] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+  // Undefined until the first response, so arriving unread does not chime on load.
+  const lastUnreadRef = useRef<number | undefined>(undefined)
 
   const { data } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => api.get<{ items: Notification[]; unread: number }>('/notifications'),
     refetchInterval: POLL_MS,
   })
+
+  const unreadCount = data?.unread
+
+  // Only a rise counts: reading a notification lowers the number, and that is
+  // not something to announce.
+  useEffect(() => {
+    if (unreadCount === undefined) return
+
+    const previous = lastUnreadRef.current
+    lastUnreadRef.current = unreadCount
+
+    if (previous === undefined || unreadCount <= previous) return
+
+    playChime()
+    setRinging(true)
+    const timer = setTimeout(() => setRinging(false), 900)
+    return () => clearTimeout(timer)
+  }, [unreadCount])
 
   useEffect(() => {
     if (!open) return
@@ -69,7 +92,7 @@ export function NotificationBell() {
         aria-label={unread ? `${unread} התראות שלא נקראו` : 'התראות'}
         className="relative rounded-md p-2 text-ink-muted transition-colors duration-micro hover:bg-ink/[0.04] hover:text-ink"
       >
-        <Bell className="size-[18px]" />
+        <Bell className={cn('size-[18px]', ringing && 'animate-ring text-steel-600')} />
         {unread > 0 && (
           <span className="numeric absolute -right-0.5 -top-0.5 flex min-w-[17px] items-center justify-center rounded-full bg-urgent px-1 text-[10.5px] font-semibold leading-[17px] text-white">
             {unread > 9 ? '9+' : unread}
@@ -81,14 +104,29 @@ export function NotificationBell() {
         <div className="absolute left-0 top-full z-40 mt-2 w-80 overflow-hidden rounded-lg border border-hair bg-surface shadow-modal animate-overlay-in">
           <div className="flex items-center justify-between border-b border-hair px-4 py-2.5">
             <span className="text-[13px] font-semibold text-ink">התראות</span>
-            {unread > 0 && (
+            <span className="flex items-center gap-3">
+              {unread > 0 && (
+                <button
+                  onClick={() => markAll.mutate()}
+                  className="text-[12.5px] font-medium text-steel-700 hover:underline"
+                >
+                  סמן הכל כנקרא
+                </button>
+              )}
               <button
-                onClick={() => markAll.mutate()}
-                className="text-[12.5px] font-medium text-steel-700 hover:underline"
+                onClick={() => {
+                  const next = !muted
+                  setMuted(next)
+                  soundPreference.set(!next)
+                  if (!next) playChime()
+                }}
+                aria-label={muted ? 'הפעלת צליל התראה' : 'השתקת צליל התראה'}
+                title={muted ? 'הצליל מושתק' : 'צליל התראה פעיל'}
+                className="text-ink-subtle transition-colors duration-micro hover:text-ink"
               >
-                סמן הכל כנקרא
+                {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
               </button>
-            )}
+            </span>
           </div>
 
           {!items.length ? (

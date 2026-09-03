@@ -88,10 +88,18 @@ export default {
           from: { opacity: '0', transform: 'translateY(8px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
+        ring: {
+          '0%, 100%': { transform: 'rotate(0deg)' },
+          '20%': { transform: 'rotate(-12deg)' },
+          '40%': { transform: 'rotate(10deg)' },
+          '60%': { transform: 'rotate(-6deg)' },
+          '80%': { transform: 'rotate(4deg)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1)',
         'overlay-in': 'overlay-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+        ring: 'ring 700ms cubic-bezier(0.2, 0.8, 0.2, 1)',
       },
     },
   },
