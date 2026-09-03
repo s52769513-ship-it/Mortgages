@@ -77,6 +77,7 @@ export type TaskFileRef = {
 
 export type Task = {
   id: string
+  seq: number
   title: string
   fileId: string
   stage: string | null
@@ -98,6 +99,10 @@ export type Task = {
 
 export type Doc = {
   id: string
+  seq: number
+  storagePath?: string | null
+  mimeType?: string | null
+  sizeBytes?: number | null
   fileId?: string | null
   file?: TaskFileRef | null
   reviewedBy?: { id: string; name: string } | null
@@ -117,6 +122,7 @@ export type Doc = {
 
 export type BankApplication = {
   id: string
+  seq: number
   fileId: string
   file?: TaskFileRef
   bankId: string
@@ -144,6 +150,15 @@ export type OfficeExpense = {
   spentAt: string
 }
 
+export type Attachment = {
+  id: string
+  kind: 'FILE' | 'VOICE'
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+  durationMs: number | null
+}
+
 export type Comment = {
   id: string
   entityType: string
@@ -152,6 +167,19 @@ export type Comment = {
   editedAt: string | null
   createdAt: string
   author: { id: string; name: string; role: Role }
+  mentions: { id: string; name: string }[]
+  attachments: Attachment[]
+}
+
+export type Notification = {
+  id: string
+  entityType: string
+  entityId: string
+  commentId: string | null
+  preview: string
+  readAt: string | null
+  createdAt: string
+  actor: { id: string; name: string } | null
 }
 
 export type ActivityEntry = {

@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js'
 import { handler, HttpError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
 import { diff, logActivity } from '../lib/activity.js'
+import { withSeq } from '../lib/sequence.js'
 
 export const tasksRouter = Router()
 tasksRouter.use(requireAuth)
@@ -134,10 +135,12 @@ tasksRouter.post(
       throw new HttpError(400, 'סטטוס המתנה מחייב לציין את הגורם שממתינים לו')
     }
 
-    const task = await prisma.task.create({
-      data: { ...data, createdById: req.user!.id },
-      include: LIST_INCLUDE,
-    })
+    const task = await withSeq('task', data.fileId, (seq) =>
+      prisma.task.create({
+        data: { ...data, seq, createdById: req.user!.id },
+        include: LIST_INCLUDE,
+      }),
+    )
     await logActivity({
       entityType: 'TASK',
       entityId: task.id,

@@ -135,6 +135,11 @@ enum ReminderChannel {
   SMS
 }
 
+enum AttachmentKind {
+  FILE
+  VOICE
+}
+
 enum ReminderStatus {
   PENDING
   SENT
@@ -163,6 +168,9 @@ model Employee {
   tasksCreated       Task[]          @relation("TaskCreator")
   documentsReviewed  Document[]      @relation("DocumentReviewer")
   comments           Comment[]
+  mentionedIn        Comment[]       @relation("CommentMentions")
+  notifications      Notification[]  @relation("NotificationRecipient")
+  notificationsSent  Notification[]  @relation("NotificationActor")
   activityLogs       ActivityLog[]
   communications     Communication[] @relation("CommunicationAuthor")
 
@@ -252,6 +260,8 @@ model MortgageFile {
 
 model Task {
   id          String     @id @default(cuid())
+  /// Running number inside the file, so people can say "task 3 on this file".
+  seq         Int        @default(0)
   title       String
   fileId      String
   stage       FileStage?
@@ -285,6 +295,7 @@ model Task {
   reminders    Reminder[]
   followUpFor  Communication[] @relation("CommunicationFollowUp")
 
+  @@unique([fileId, seq])
   @@index([fileId])
   @@index([status])
   @@index([ownerId])
@@ -293,6 +304,8 @@ model Task {
 
 model Document {
   id          String  @id @default(cuid())
+  /// Running number inside the file.
+  seq         Int     @default(0)
   docType     String
   fileName    String
   storagePath String?
@@ -323,6 +336,7 @@ model Document {
   tasks          Task[]          @relation("TaskDocuments")
   communications Communication[] @relation("CommunicationAttachments")
 
+  @@unique([fileId, seq])
   @@index([fileId])
   @@index([status])
 }
@@ -380,6 +394,8 @@ model Banker {
 
 model BankApplication {
   id          String  @id @default(cuid())
+  /// Running number inside the file.
+  seq         Int     @default(0)
   fileId      String
   bankId      String
   branchId    String?
@@ -418,6 +434,7 @@ model BankApplication {
   branch BankBranch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   banker Banker?      @relation(fields: [bankerId], references: [id], onDelete: SetNull)
 
+  @@unique([fileId, seq])
   @@index([fileId])
   @@index([status])
 }
@@ -490,9 +507,49 @@ model Comment {
   editedAt   DateTime?
   createdAt  DateTime   @default(now())
 
-  author Employee @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author        Employee       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  mentions      Employee[]     @relation("CommentMentions")
+  attachments   Attachment[]
+  notifications Notification[]
 
   @@index([entityType, entityId, createdAt])
+}
+
+/// A file or a voice note hanging off a chat message.
+model Attachment {
+  id         String         @id @default(cuid())
+  commentId  String
+  kind       AttachmentKind @default(FILE)
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  storageKey String
+  /// Length of a voice note, so the player can show it before loading.
+  durationMs Int?
+  createdAt  DateTime       @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
+}
+
+/// Raised when someone is named in a message; opening it goes to the record.
+model Notification {
+  id          String     @id @default(cuid())
+  recipientId String
+  actorId     String?
+  entityType  EntityType
+  entityId    String
+  commentId   String?
+  preview     String
+  readAt      DateTime?
+  createdAt   DateTime   @default(now())
+
+  recipient Employee  @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     Employee? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  comment   Comment?  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, readAt, createdAt])
 }
 
 model ActivityLog {

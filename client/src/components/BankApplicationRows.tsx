@@ -67,6 +67,9 @@ export function BankApplicationRows({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2.5">
+                  <span className="numeric text-[13px] text-ink-subtle" dir="ltr">
+                    {app.seq}
+                  </span>
                   <span className="text-[15px] font-semibold text-ink">{app.bank?.name}</span>
                   <Badge tone={tone}>{labelOf(BANK_APP_STATUS, app.status).label}</Badge>
                   {app.isChosen && (

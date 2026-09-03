@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  Bell,
   Building2,
   FileText,
   FolderOpen,
@@ -20,6 +19,7 @@ import { useAuth } from '@/lib/auth'
 import { initials } from '@/lib/format'
 import { labelOf, ROLE } from '@/lib/labels'
 import { Button } from '@/components/ui/Button'
+import { NotificationBell } from '@/components/NotificationBell'
 
 /** Six entries, no more. Settings, staff and banks live in the user menu. */
 const NAV = [
@@ -146,12 +146,7 @@ export function AppShell() {
               <span className="hidden sm:inline">תיק חדש</span>
             </Button>
 
-            <button
-              aria-label="התראות"
-              className="rounded-md p-2 text-ink-muted transition-colors duration-micro hover:bg-ink/[0.04] hover:text-ink"
-            >
-              <Bell className="size-[18px]" />
-            </button>
+            <NotificationBell />
 
             {user && (
               <div className="flex items-center gap-2.5 border-e border-hair pe-3">

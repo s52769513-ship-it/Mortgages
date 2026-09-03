@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { AppShell } from '@/components/layout/AppShell'
+import { WelcomeOverlay } from '@/components/WelcomeOverlay'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ClientsPage } from '@/pages/ClientsPage'
@@ -22,7 +23,7 @@ function FullPageSpinner() {
 }
 
 export function App() {
-  const { user, ready } = useAuth()
+  const { user, ready, justSignedIn, dismissWelcome } = useAuth()
 
   if (!ready) return <FullPageSpinner />
 
@@ -36,7 +37,9 @@ export function App() {
   }
 
   return (
-    <Routes>
+    <>
+      {justSignedIn && <WelcomeOverlay name={user.name} onDone={dismissWelcome} />}
+      <Routes>
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route element={<AppShell />}>
         <Route index element={<DashboardPage />} />
@@ -50,6 +53,7 @@ export function App() {
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
-    </Routes>
+      </Routes>
+    </>
   )
 }

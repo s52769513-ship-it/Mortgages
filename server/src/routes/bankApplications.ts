@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js'
 import { handler, HttpError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
 import { diff, logActivity } from '../lib/activity.js'
+import { withSeq } from '../lib/sequence.js'
 
 export const bankAppsRouter = Router()
 bankAppsRouter.use(requireAuth)
@@ -149,10 +150,12 @@ bankAppsRouter.post(
       bankerEmail,
     })
 
-    const application = await prisma.bankApplication.create({
-      data: { ...rest, ...contacts },
-      include: LIST_INCLUDE,
-    })
+    const application = await withSeq('bankApplication', rest.fileId, (seq) =>
+      prisma.bankApplication.create({
+        data: { ...rest, seq, ...contacts },
+        include: LIST_INCLUDE,
+      }),
+    )
     await logActivity({
       entityType: 'MORTGAGE_FILE',
       entityId: application.fileId,

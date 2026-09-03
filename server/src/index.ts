@@ -15,6 +15,7 @@ import { tasksRouter } from './routes/tasks.js'
 import { documentsRouter } from './routes/documents.js'
 import { bankAppsRouter } from './routes/bankApplications.js'
 import { banksRouter } from './routes/banks.js'
+import { notificationsRouter } from './routes/notifications.js'
 import { bootstrapFirstAdmin } from './lib/bootstrap.js'
 
 const app = express()
@@ -40,6 +41,7 @@ app.use('/api/tasks', tasksRouter)
 app.use('/api/documents', documentsRouter)
 app.use('/api/bank-applications', bankAppsRouter)
 app.use('/api/banks', banksRouter)
+app.use('/api/notifications', notificationsRouter)
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'הנתיב לא נמצא' }))
 

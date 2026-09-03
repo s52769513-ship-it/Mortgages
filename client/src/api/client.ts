@@ -35,11 +35,13 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = tokenStore.get()
+  // The browser sets its own multipart boundary; declaring a type would break it.
+  const isFormData = init.body instanceof FormData
 
   const res = await fetch(`/api${path}`, {
     ...init,
     headers: {
-      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init.body && !isFormData ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },
@@ -61,6 +63,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export const api = {
   get: <T>(path: string) => request<T>(path),
+  upload: <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form }),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}) }),
   patch: <T>(path: string, body: unknown) =>

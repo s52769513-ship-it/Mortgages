@@ -2,9 +2,11 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { DocumentStatus } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
-import { handler, HttpError } from '../lib/http.js'
+import { handler, HttpError, sendError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
 import { diff, logActivity } from '../lib/activity.js'
+import { withSeq } from '../lib/sequence.js'
+import { resolveStored, upload, uploadErrorMessage } from '../lib/storage.js'
 
 export const documentsRouter = Router()
 documentsRouter.use(requireAuth)
@@ -83,11 +85,13 @@ documentsRouter.post(
     const file = await prisma.mortgageFile.findUnique({ where: { id: data.fileId } })
     if (!file) throw new HttpError(400, 'התיק שנבחר לא קיים')
 
-    const document = await prisma.document.create({
-      // The client is implied by the file, so it is filled in rather than asked for.
-      data: { ...data, fileName: data.fileName ?? '', clientId: file.clientId },
-      include: LIST_INCLUDE,
-    })
+    const document = await withSeq('document', data.fileId, (seq) =>
+      prisma.document.create({
+        // The client is implied by the file, so it is filled in rather than asked for.
+        data: { ...data, seq, fileName: data.fileName ?? '', clientId: file.clientId },
+        include: LIST_INCLUDE,
+      }),
+    )
     await logActivity({
       entityType: 'MORTGAGE_FILE',
       entityId: file.id,
@@ -184,5 +188,81 @@ documentsRouter.delete(
       })
     }
     res.status(204).end()
+  }),
+)
+
+/**
+ * Attaches the actual file to a document record. Uploading again supersedes
+ * the previous one as a new version and sends it back for review, so the
+ * history of what was received when is not overwritten.
+ */
+documentsRouter.post(
+  '/:id/file',
+  (req, res, next) =>
+    upload.single('file')(req, res, (err) => {
+      const message = uploadErrorMessage(err)
+      if (message) return sendError(res, new HttpError(413, message))
+      if (err) return sendError(res, err)
+      next()
+    }),
+  handler(async (req, res) => {
+    if (!req.file) throw new HttpError(400, 'לא צורף קובץ')
+
+    const before = await prisma.document.findUnique({ where: { id: req.params.id } })
+    if (!before) throw new HttpError(404, 'המסמך לא נמצא')
+
+    const replacing = Boolean(before.storagePath)
+
+    const document = await prisma.document.update({
+      where: { id: req.params.id },
+      data: {
+        fileName: req.file.originalname,
+        storagePath: req.file.filename,
+        mimeType: req.file.mimetype,
+        sizeBytes: req.file.size,
+        receivedAt: new Date(),
+        status: 'UNDER_REVIEW',
+        isValid: null,
+        issueNotes: null,
+        reviewedById: req.user!.id,
+        ...(replacing ? { version: before.version + 1 } : {}),
+      },
+      include: LIST_INCLUDE,
+    })
+
+    await logActivity({
+      entityType: 'DOCUMENT',
+      entityId: document.id,
+      actorId: req.user!.id,
+      action: replacing ? 'החלפת גרסת מסמך' : 'העלאת מסמך',
+      ...(replacing
+        ? { changes: [{ field: 'version', oldValue: before.version, newValue: document.version }] }
+        : {}),
+    })
+    if (document.fileId) {
+      await logActivity({
+        entityType: 'MORTGAGE_FILE',
+        entityId: document.fileId,
+        actorId: req.user!.id,
+        action: `${replacing ? 'החלפת' : 'העלאת'} מסמך — ${document.docType}`,
+      })
+    }
+
+    res.json(document)
+  }),
+)
+
+documentsRouter.get(
+  '/:id/file',
+  handler(async (req, res) => {
+    const document = await prisma.document.findUnique({ where: { id: req.params.id } })
+    if (!document?.storagePath) throw new HttpError(404, 'אין קובץ מצורף למסמך זה')
+
+    res.type(document.mimeType ?? 'application/octet-stream')
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename*=UTF-8''${encodeURIComponent(document.fileName)}`,
+    )
+    res.sendFile(resolveStored(document.storagePath))
   }),
 )

@@ -96,6 +96,7 @@ export function TasksPage() {
         <>
           <span className="numeric block truncate text-[13.5px] text-steel-700" dir="ltr">
             {t.file?.fileNumber}
+            <span className="text-ink-subtle"> · {t.seq}</span>
           </span>
           <span className="block truncate text-[13px] text-ink-muted">
             {t.file?.client.fullName}

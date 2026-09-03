@@ -36,6 +36,7 @@ import { ActivityFeed } from '@/components/ActivityFeed'
 import { BankApplicationModal } from '@/components/BankApplicationModal'
 import { BankApplicationRows } from '@/components/BankApplicationRows'
 import { NewTaskModal } from '@/components/NewTaskModal'
+import { UploadDocumentModal } from '@/components/UploadDocumentModal'
 import { EditFileModal } from '@/components/EditFileModal'
 import { TaskOverlay } from '@/components/TaskOverlay'
 
@@ -52,6 +53,7 @@ export function FileDetailPage() {
   const [applying, setApplying] = useState(false)
   const [addingTask, setAddingTask] = useState(false)
   const [editingFile, setEditingFile] = useState(false)
+  const [addingDocument, setAddingDocument] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
 
   const {
@@ -230,6 +232,12 @@ export function FileDetailPage() {
                           RAILS[tone],
                         )}
                       >
+                        <span
+                          className="numeric w-6 shrink-0 text-[13px] text-ink-subtle"
+                          dir="ltr"
+                        >
+                          {task.seq}
+                        </span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[15px] font-medium text-ink">{task.title}</p>
                           <p className="mt-0.5 truncate text-[13px] text-ink-muted">
@@ -308,13 +316,20 @@ export function FileDetailPage() {
                   title="התיק עדיין ריק ממסמכים"
                   description="בלי מסמכים אי אפשר להגיש לבנק. אפשר להעלות מסמך או לבקש אותו מהלקוח."
                   action={
-                    <Button>
+                    <Button onClick={() => setAddingDocument(true)}>
                       <Upload className="size-4" />
                       העלה מסמך
                     </Button>
                   }
                 />
               ) : (
+                <>
+                  <div className="flex justify-end border-b border-hair px-7 py-3">
+                    <Button size="sm" variant="secondary" onClick={() => setAddingDocument(true)}>
+                      <Upload className="size-4" />
+                      העלה מסמך
+                    </Button>
+                  </div>
                 <div className="grid gap-px bg-hair sm:grid-cols-2">
                   {visibleDocs.map((doc) => {
                     const tone = labelOf(DOCUMENT_STATUS, doc.status).tone
@@ -326,7 +341,12 @@ export function FileDetailPage() {
                           RAILS[tone],
                         )}
                       >
-                        <h4 className="text-[15px] font-medium text-ink">{doc.docType}</h4>
+                        <h4 className="flex items-baseline gap-2 text-[15px] font-medium text-ink">
+                          <span className="numeric text-[13px] text-ink-subtle" dir="ltr">
+                            {doc.seq}
+                          </span>
+                          <span className="min-w-0 truncate">{doc.docType}</span>
+                        </h4>
                         <p className="text-[13px] text-ink-muted">
                           גרסה <span className="numeric" dir="ltr">{doc.version}</span>
                           {doc.issueNotes
@@ -335,13 +355,24 @@ export function FileDetailPage() {
                               ? ` · התקבל ${date(doc.receivedAt)}`
                               : ''}
                         </p>
-                        <Badge tone={tone} className="self-start">
-                          {labelOf(DOCUMENT_STATUS, doc.status).label}
-                        </Badge>
+                        <div className="flex items-center justify-between gap-3">
+                          <Badge tone={tone}>{labelOf(DOCUMENT_STATUS, doc.status).label}</Badge>
+                          {doc.storagePath && (
+                            <a
+                              href={`/api/documents/${doc.id}/file`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[13px] font-medium text-steel-700 underline-offset-[3px] hover:underline"
+                            >
+                              פתח קובץ
+                            </a>
+                          )}
+                        </div>
                       </article>
                     )
                   })}
                 </div>
+                </>
               )}
             </TabPanel>
 
@@ -452,6 +483,10 @@ export function FileDetailPage() {
       )}
 
       {editingFile && <EditFileModal file={file} open onClose={() => setEditingFile(false)} />}
+
+      {addingDocument && (
+        <UploadDocumentModal fileId={file.id} open onClose={() => setAddingDocument(false)} />
+      )}
 
       <TaskOverlay
         task={editingTask}

@@ -80,6 +80,7 @@ export default {
         micro: '120ms',
         base: '180ms',
         overlay: '220ms',
+        slow: '400ms',
       },
       keyframes: {
         'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
