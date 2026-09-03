@@ -17,33 +17,6 @@ const CHIP: Record<Tone, string> = {
   urgent: 'bg-urgent-tint text-urgent-ink rounded-full',
 }
 
-const BAR: Record<Tone, string> = {
-  neutral: 'bg-rail',
-  busy: 'bg-steel-600',
-  ok: 'bg-ok',
-  wait: 'bg-wait',
-  urgent: 'bg-urgent',
-}
-
-/** Four bars, the last one carrying the accent — a trend, not a chart. */
-export function Sparkline({ values, tone = 'busy' }: { values: number[]; tone?: Tone }) {
-  const max = Math.max(1, ...values)
-  return (
-    <span className="flex h-[26px] items-end gap-1" aria-hidden>
-      {values.map((v, i) => (
-        <span
-          key={i}
-          className={cn(
-            'w-[7px] rounded-sm',
-            i === values.length - 1 ? BAR[tone] : 'bg-steel-300',
-          )}
-          style={{ height: `${Math.max(20, (v / max) * 100)}%` }}
-        />
-      ))}
-    </span>
-  )
-}
-
 /**
  * One of the four dashboard metrics. Every card is a link into the list it
  * summarises — the number is never a dead end.
@@ -53,7 +26,7 @@ export function KpiCard({
   value,
   chip,
   chipTone = 'neutral',
-  spark,
+  hint,
   delta,
   deltaTone = 'neutral',
   tone = 'neutral',
@@ -64,7 +37,8 @@ export function KpiCard({
   value: number | string
   chip?: string
   chipTone?: Tone
-  spark?: number[]
+  /** A short qualifier under the number — what it counts, not how it changed. */
+  hint?: string
   delta?: string
   deltaTone?: Tone
   tone?: Tone
@@ -94,14 +68,14 @@ export function KpiCard({
           {value}
         </span>
 
-        {spark ? (
-          <Sparkline values={spark} tone={tone} />
-        ) : chip ? (
+        {chip && (
           <span className={cn('px-3 py-1 text-[11.5px] font-semibold', CHIP[chipTone])}>
             {chip}
           </span>
-        ) : null}
+        )}
       </span>
+
+      {hint && <span className="text-[12px] text-ink-subtle">{hint}</span>}
 
       {delta && (
         <span

@@ -254,4 +254,5 @@ export type Dashboard = {
   dueToday: Task[]
   blockedFiles: BlockedFile[]
   activity: ActivityEntry[]
+  pipeline: { stage: string; active: number; blocked: number; onHold: number }[]
 }

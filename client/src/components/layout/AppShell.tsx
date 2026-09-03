@@ -24,7 +24,7 @@ import { GlobalSearch } from '@/components/GlobalSearch'
 
 /** Six entries, no more. Settings, staff and banks live in the user menu. */
 const NAV = [
-  { to: '/', label: 'דאשבורד', icon: LayoutDashboard, end: true },
+  { to: '/', label: 'דשבורד', icon: LayoutDashboard, end: true },
   { to: '/clients', label: 'לקוחות ולידים', icon: Users },
   { to: '/files', label: 'תיקי משכנתא', icon: FolderOpen },
   { to: '/tasks', label: 'משימות', icon: ListChecks },

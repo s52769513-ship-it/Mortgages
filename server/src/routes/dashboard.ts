@@ -7,6 +7,16 @@ import { requireAuth } from '../middleware/auth.js'
 export const dashboardRouter = Router()
 dashboardRouter.use(requireAuth)
 
+/** The six pipeline steps, in order — mirrors the stepper on the file page. */
+const STAGE_ORDER = [
+  'INTAKE',
+  'DOCUMENT_COLLECTION',
+  'BANK_SUBMISSION',
+  'APPROVAL_IN_PRINCIPLE',
+  'COLLATERAL',
+  'EXECUTION',
+] as const
+
 const OPEN_TASK_STATES: TaskStatus[] = [
   'OPEN',
   'IN_PROGRESS',
@@ -16,6 +26,12 @@ const OPEN_TASK_STATES: TaskStatus[] = [
   'WAITING_LAWYER',
   'WAITING_OTHER',
 ]
+
+const startOfToday = () => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
 
 const endOfToday = () => {
   const d = new Date()
@@ -31,10 +47,23 @@ dashboardRouter.get(
     const now = new Date()
     const today = endOfToday()
 
-    const [tasksToday, overdueTasks, activeFiles, waitingOnBank, dueToday, blockedFiles, activity] =
-      await Promise.all([
+    const [
+      tasksToday,
+      overdueTasks,
+      activeFiles,
+      waitingOnBank,
+      dueToday,
+      blockedFiles,
+      activity,
+      stageRows,
+    ] = await Promise.all([
+        // Due today only. Anything older is counted as overdue instead, so the
+        // two numbers do not describe the same task twice.
         prisma.task.count({
-          where: { status: { in: OPEN_TASK_STATES }, dueAt: { lte: today } },
+          where: {
+            status: { in: OPEN_TASK_STATES },
+            dueAt: { gte: startOfToday(), lte: today },
+          },
         }),
         prisma.task.count({
           where: { status: { in: OPEN_TASK_STATES }, dueAt: { lt: now } },
@@ -70,6 +99,13 @@ dashboardRouter.get(
           orderBy: { createdAt: 'desc' },
           take: 6,
         }),
+
+        // Where the open files are sitting, split by whether they are moving.
+        prisma.mortgageFile.groupBy({
+          by: ['stage', 'status'],
+          where: { status: { in: ['ACTIVE', 'BLOCKED', 'ON_HOLD'] } },
+          _count: { _all: true },
+        }),
       ])
 
     res.json({
@@ -87,6 +123,20 @@ dashboardRouter.get(
         ),
       })),
       activity,
+      // One row per stage, in the order the pipeline runs, including the
+      // stages holding nothing — a gap in the middle is itself the finding.
+      pipeline: STAGE_ORDER.map((stage) => {
+        const rows = stageRows.filter((r) => r.stage === stage)
+        const countFor = (status: string) =>
+          rows.find((r) => r.status === status)?._count._all ?? 0
+
+        return {
+          stage,
+          active: countFor('ACTIVE'),
+          blocked: countFor('BLOCKED'),
+          onHold: countFor('ON_HOLD'),
+        }
+      }),
     })
   }),
 )

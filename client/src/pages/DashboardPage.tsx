@@ -11,6 +11,7 @@ import { Badge, RAILS } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
+import { PipelineChart } from '@/components/PipelineChart'
 
 function PanelHeader({ title, link }: { title: string; link?: { to: string; label: string } }) {
   return (
@@ -45,7 +46,7 @@ export function DashboardPage() {
   return (
     <>
       <div className="mb-6">
-        <h1 className="font-heading text-[32px] font-bold leading-tight text-ink">דאשבורד</h1>
+        <h1 className="font-heading text-[32px] font-bold leading-tight text-ink">דשבורד</h1>
         <p className="mt-1 text-[15px] text-ink-muted">
           {new Date().toLocaleDateString('he-IL', {
             weekday: 'long',
@@ -65,7 +66,7 @@ export function DashboardPage() {
             <KpiCard
               label="משימות להיום"
               value={kpis.tasksToday}
-              spark={[14, 20, 12, 26]}
+              hint="בכל התיקים"
               tone="busy"
               onClick={() => navigate('/tasks')}
             />
@@ -81,7 +82,6 @@ export function DashboardPage() {
             <KpiCard
               label="תיקים פעילים"
               value={kpis.activeFiles}
-              spark={[16, 18, 22, 24]}
               tone="busy"
               onClick={() => navigate('/files?status=ACTIVE')}
             />
@@ -97,10 +97,23 @@ export function DashboardPage() {
         )}
       </div>
 
+      <Card className="mt-6 overflow-hidden">
+        <PanelHeader title="תיקים בצנרת" link={{ to: '/files', label: 'לכל התיקים' }} />
+        {isLoading ? (
+          <div className="space-y-3 p-6">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-5" />
+            ))}
+          </div>
+        ) : (
+          <PipelineChart rows={data?.pipeline ?? []} />
+        )}
+      </Card>
+
       {/* 60/40 — today's work against what is stuck. */}
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.6fr_1fr]">
         <Card className="overflow-hidden">
-          <PanelHeader title="משימות היום" link={{ to: '/tasks', label: 'כל המשימות' }} />
+          <PanelHeader title="המשימות שלי להיום" link={{ to: '/tasks', label: 'כל המשימות' }} />
 
           {isLoading ? (
             <div className="space-y-4 p-6">
