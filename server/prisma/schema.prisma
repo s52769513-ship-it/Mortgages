@@ -361,7 +361,7 @@ model BankBranch {
   apps    BankApplication[]
 
   @@unique([bankId, name])
-  @@unique([bankId, code])
+  @@index([bankId, code])
   @@index([bankId, city])
 }
 

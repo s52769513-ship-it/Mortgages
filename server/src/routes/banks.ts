@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
-import { handler } from '../lib/http.js'
+import { handler, HttpError } from '../lib/http.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
 import { importBanks } from '../services/importBanks.js'
 
@@ -103,7 +103,13 @@ banksRouter.post(
   '/import',
   requireRole('ADMIN'),
   handler(async (_req, res) => {
-    const summary = await importBanks()
-    res.json(summary)
+    try {
+      res.json(await importBanks())
+    } catch (e) {
+      if (e instanceof HttpError) throw e
+      // This is an operator-triggered action, so the real message is more use
+      // than a generic failure.
+      throw new HttpError(500, `הייבוא נכשל: ${e instanceof Error ? e.message : String(e)}`)
+    }
   }),
 )

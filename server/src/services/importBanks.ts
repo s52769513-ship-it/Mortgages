@@ -39,8 +39,14 @@ async function ckan<T>(path: string): Promise<T> {
     throw new HttpError(502, `data.gov.il החזיר שגיאה ${res.status}. נסה שוב מאוחר יותר.`)
   }
 
-  const body = (await res.json()) as { success: boolean; result: T }
-  if (!body.success) throw new HttpError(502, 'data.gov.il דחה את הבקשה.')
+  let body: { success: boolean; result: T }
+  try {
+    body = (await res.json()) as { success: boolean; result: T }
+  } catch {
+    throw new HttpError(502, 'data.gov.il החזיר תשובה שאינה JSON. ייתכן שהשירות מושבת זמנית.')
+  }
+
+  if (!body?.success) throw new HttpError(502, 'data.gov.il דחה את הבקשה.')
   return body.result
 }
 
@@ -85,20 +91,28 @@ async function fetchAllRows(resourceId: string) {
 }
 
 
-export type ImportSummary = { banks: number; branches: number; skipped: number }
+export type ImportSummary = {
+  banks: number
+  branches: number
+  skipped: number
+  failed: number
+  firstFailure?: string
+}
 
 /** Pulls the published bank and branch list into our tables. Safe to re-run. */
 export async function importBanks(): Promise<ImportSummary> {
   const resourceId = await findResourceId()
   const rows = await fetchAllRows(resourceId)
 
-  if (rows.length === 0) return { banks: 0, branches: 0, skipped: 0 }
+  if (rows.length === 0) return { banks: 0, branches: 0, skipped: 0, failed: 0 }
 
   console.log(`Fetched ${rows.length} rows. Columns: ${Object.keys(rows[0]).join(', ')}`)
 
   let banks = 0
   let branches = 0
   let skipped = 0
+  let failed = 0
+  let firstFailure: string | null = null
 
   // One bank has many branches; cache so each bank is written once.
   const bankIdByCode = new Map<string, string>()
@@ -116,14 +130,20 @@ export async function importBanks(): Promise<ImportSummary> {
     let bankId = bankIdByCode.get(cacheKey)
 
     if (!bankId) {
-      const bank = await prisma.bank.upsert({
-        where: { name: bankName },
-        update: bankCode ? { code: bankCode } : {},
-        create: { name: bankName, code: bankCode },
-      })
-      bankId = bank.id
-      bankIdByCode.set(cacheKey, bankId)
-      banks++
+      try {
+        const bank = await prisma.bank.upsert({
+          where: { name: bankName },
+          update: bankCode ? { code: bankCode } : {},
+          create: { name: bankName, code: bankCode },
+        })
+        bankId = bank.id
+        bankIdByCode.set(cacheKey, bankId)
+        banks++
+      } catch (e) {
+        failed++
+        firstFailure ??= `בנק "${bankName}": ${e instanceof Error ? e.message : String(e)}`
+        continue
+      }
     }
 
     const branchCode = pick(row, 'branchcode', 'קודסניף', 'מספרסניף')
@@ -143,13 +163,18 @@ export async function importBanks(): Promise<ImportSummary> {
     const address = pick(row, 'branchaddress', 'address', 'כתובת', 'כתובתסניף') ?? (street || null)
     const phone = pick(row, 'telephone', 'phone', 'טלפון')
 
-    await prisma.bankBranch.upsert({
-      where: { bankId_name: { bankId, name: branchName } },
-      update: { code: branchCode, city, address, phone },
-      create: { bankId, name: branchName, code: branchCode, city, address, phone },
-    })
-    branches++
+    try {
+      await prisma.bankBranch.upsert({
+        where: { bankId_name: { bankId, name: branchName } },
+        update: { code: branchCode, city, address, phone },
+        create: { bankId, name: branchName, code: branchCode, city, address, phone },
+      })
+      branches++
+    } catch (e) {
+      failed++
+      firstFailure ??= `סניף "${branchName}": ${e instanceof Error ? e.message : String(e)}`
+    }
   }
 
-  return { banks, branches, skipped }
+  return { banks, branches, skipped, failed, ...(firstFailure ? { firstFailure } : {}) }
 }
