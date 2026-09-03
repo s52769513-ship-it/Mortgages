@@ -26,6 +26,21 @@ npm run dev                             # API על 4000, ממשק על 5173
 
 משתמש ראשוני מהזריעה: `admin@mortgages.local` / `Admin12345`.
 
+## העלאה ל-Railway
+
+שירות אחד מגיש גם את ה-API וגם את הממשק, כך שיש כתובת אחת ובלי CORS.
+
+1. בפרויקט ב-Railway: **New → GitHub Repo**, ולבחור את הריפו ואת הברנץ'.
+2. ב-**Variables** של השירות להוסיף:
+   - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (הפניה לשירות ה-Postgres)
+   - `JWT_SECRET` = מחרוזת אקראית ארוכה
+   - `NODE_ENV` = `production`
+3. `railway.json` כבר מגדיר את הבנייה וההרצה. בכל דיפלוי רצה
+   `prisma migrate deploy`, כך שהסכימה מתעדכנת לבד.
+4. ב-**Settings → Networking** ללחוץ **Generate Domain** כדי לקבל כתובת.
+5. אחרי הדיפלוי הראשון, ליצור את המשתמש הראשון פעם אחת:
+   `npm run db:seed` מתוך ה-Console של השירות.
+
 ## מודל הנתונים
 
 12 ישויות: `Employee`, `Client`, `MortgageFile`, `Task`, `Document`, `Bank`
