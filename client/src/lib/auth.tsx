@@ -26,6 +26,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [justSignedIn, setJustSignedIn] = useState(false)
 
   const logout = useCallback(() => {
+    // Best effort: the local session is gone either way.
+    api.post<void>('/auth/logout').catch(() => undefined)
     tokenStore.clear()
     setUser(null)
     setJustSignedIn(false)

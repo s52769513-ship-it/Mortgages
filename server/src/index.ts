@@ -1,4 +1,9 @@
 import 'dotenv/config'
+import { assertEnv } from './lib/env.js'
+
+// Before anything else touches the database or signs a token.
+assertEnv()
+
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -21,8 +26,24 @@ import { professionalsRouter } from './routes/professionals.js'
 import { expensesRouter } from './routes/expenses.js'
 import { searchRouter } from './routes/search.js'
 import { bootstrapFirstAdmin } from './lib/bootstrap.js'
+import { prisma } from './lib/prisma.js'
 
 const app = express()
+
+// Behind Railway's edge the client address arrives in X-Forwarded-For; without
+// this every login attempt looks like it comes from the proxy, and the login
+// throttle would lock the whole office out together.
+if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1)
+
+// Headers that cost nothing and close common browser-side holes. Microphone
+// access is kept for this origin because the chat records voice notes.
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+  res.setHeader('Permissions-Policy', 'microphone=(self), camera=(), geolocation=()')
+  next()
+})
 
 // In development the client runs on its own port and needs CORS. In production
 // it is served from this same origin, so there is no cross-origin request to
@@ -32,7 +53,16 @@ if (process.env.NODE_ENV !== 'production') {
 }
 app.use(express.json({ limit: '1mb' }))
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }))
+// A service whose database link has died is not healthy, whatever the
+// process says; the platform restarts it only if this tells the truth.
+app.get('/api/health', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`
+    res.json({ ok: true, db: true })
+  } catch {
+    res.status(503).json({ ok: false, db: false })
+  }
+})
 
 app.use('/api/auth', authRouter)
 app.use('/api/clients', clientsRouter)

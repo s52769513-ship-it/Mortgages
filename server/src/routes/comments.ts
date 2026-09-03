@@ -4,7 +4,8 @@ import { EntityType } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { handler, HttpError, sendError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
-import { resolveStored, upload, uploadErrorMessage } from '../lib/storage.js'
+import { upload, uploadErrorMessage } from '../lib/storage.js'
+import { sendStoredFile } from '../lib/files.js'
 
 export const commentsRouter = Router()
 commentsRouter.use(requireAuth)
@@ -156,11 +157,6 @@ commentsRouter.get(
     const attachment = await prisma.attachment.findUnique({ where: { id: req.params.id } })
     if (!attachment) throw new HttpError(404, 'הקובץ לא נמצא')
 
-    res.type(attachment.mimeType)
-    res.setHeader(
-      'Content-Disposition',
-      `inline; filename*=UTF-8''${encodeURIComponent(attachment.fileName)}`,
-    )
-    res.sendFile(resolveStored(attachment.storageKey))
+    sendStoredFile(res, attachment.storageKey, attachment.fileName)
   }),
 )

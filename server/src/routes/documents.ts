@@ -9,7 +9,8 @@ import { withSeq } from '../lib/sequence.js'
 import { parsePaging, parseSort } from '../lib/listing.js'
 
 const DOCUMENT_SORTS = ['docType', 'status', 'receivedAt', 'expiresAt', 'version', 'seq'] as const
-import { resolveStored, upload, uploadErrorMessage } from '../lib/storage.js'
+import { upload, uploadErrorMessage } from '../lib/storage.js'
+import { sendStoredFile } from '../lib/files.js'
 
 export const documentsRouter = Router()
 documentsRouter.use(requireAuth)
@@ -259,11 +260,6 @@ documentsRouter.get(
     const document = await prisma.document.findUnique({ where: { id: req.params.id } })
     if (!document?.storagePath) throw new HttpError(404, 'אין קובץ מצורף למסמך זה')
 
-    res.type(document.mimeType ?? 'application/octet-stream')
-    res.setHeader(
-      'Content-Disposition',
-      `inline; filename*=UTF-8''${encodeURIComponent(document.fileName)}`,
-    )
-    res.sendFile(resolveStored(document.storagePath))
+    sendStoredFile(res, document.storagePath, document.fileName)
   }),
 )
