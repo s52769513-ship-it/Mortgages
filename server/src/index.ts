@@ -8,6 +8,9 @@ import { commentsRouter } from './routes/comments.js'
 import { activityRouter } from './routes/activity.js'
 import { dashboardRouter } from './routes/dashboard.js'
 import { employeesRouter } from './routes/employees.js'
+import { tasksRouter } from './routes/tasks.js'
+import { documentsRouter } from './routes/documents.js'
+import { bankAppsRouter } from './routes/bankApplications.js'
 
 const app = express()
 
@@ -23,6 +26,9 @@ app.use('/api/comments', commentsRouter)
 app.use('/api/activity', activityRouter)
 app.use('/api/dashboard', dashboardRouter)
 app.use('/api/employees', employeesRouter)
+app.use('/api/tasks', tasksRouter)
+app.use('/api/documents', documentsRouter)
+app.use('/api/bank-applications', bankAppsRouter)
 
 app.use((_req, res) => res.status(404).json({ error: 'הנתיב לא נמצא' }))
 

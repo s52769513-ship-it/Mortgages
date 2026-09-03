@@ -133,7 +133,7 @@ export function DataTable<T extends { id: string }>({
             <div
               role="row"
               className={cn(
-                'group relative grid items-center gap-4 border-e-4 px-7 py-4',
+                'group relative grid items-center gap-4 border-s-4 px-7 py-4',
                 'transition-colors duration-micro ease-standard hover:bg-ink/[0.04]',
                 i < rows.length - 1 && 'border-b border-b-row',
                 RAILS[tone],

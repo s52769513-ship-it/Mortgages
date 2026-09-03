@@ -125,7 +125,7 @@ export function DashboardPage() {
                     <Link
                       to={`/files/${task.fileId}`}
                       className={cn(
-                        'flex items-center gap-4 border-e-4 px-6 py-4',
+                        'flex items-center gap-4 border-s-4 px-6 py-4',
                         'transition-colors duration-micro ease-standard hover:bg-ink/[0.04]',
                         i < data.dueToday.length - 1 && 'border-b border-b-row',
                         RAILS[tone],

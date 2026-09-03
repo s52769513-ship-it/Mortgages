@@ -69,6 +69,12 @@ export type MortgageFile = MortgageFileSummary & {
   _count?: { tasks: number; documents: number; bankApps: number }
 }
 
+export type TaskFileRef = {
+  id: string
+  fileNumber: string
+  client: { fullName: string }
+}
+
 export type Task = {
   id: string
   title: string
@@ -85,11 +91,16 @@ export type Task = {
   completionNote: string | null
   completedAt: string | null
   createdAt: string
-  file?: { id: string; fileNumber: string; client: { fullName: string } }
+  file?: TaskFileRef
+  escalationRule?: string | null
+  createdBy?: { id: string; name: string } | null
 }
 
 export type Doc = {
   id: string
+  fileId?: string | null
+  file?: TaskFileRef | null
+  reviewedBy?: { id: string; name: string } | null
   docType: string
   fileName: string
   status: string
@@ -107,6 +118,7 @@ export type Doc = {
 export type BankApplication = {
   id: string
   fileId: string
+  file?: TaskFileRef
   bankId: string
   bank?: { id: string; name: string }
   branch?: { id: string; name: string } | null

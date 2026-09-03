@@ -208,10 +208,10 @@ export function FileDetailPage() {
                       <li
                         key={task.id}
                         className={cn(
-                          'flex items-center gap-4 border-e-4 px-7 py-3.5',
+                          'flex items-center gap-4 border-s-4 px-7 py-3.5',
                           'transition-colors duration-micro ease-standard hover:bg-ink/[0.04]',
                           i < visibleTasks.length - 1 && 'border-b border-b-row',
-                          RAILS[overdue ? 'urgent' : tone],
+                          RAILS[tone],
                         )}
                       >
                         <div className="min-w-0 flex-1">

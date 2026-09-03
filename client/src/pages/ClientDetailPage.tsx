@@ -131,7 +131,7 @@ export function ClientDetailPage() {
                     <Link
                       to={`/files/${file.id}`}
                       className={cn(
-                        'flex items-center gap-4 border-e-4 px-6 py-4',
+                        'flex items-center gap-4 border-s-4 px-6 py-4',
                         'transition-colors duration-micro ease-standard hover:bg-ink/[0.04]',
                         i < client.files!.length - 1 && 'border-b border-b-row',
                         RAILS[labelOf(FILE_STATUS, file.status).tone],
