@@ -65,7 +65,8 @@ export type MortgageFile = MortgageFileSummary & {
   documents?: Doc[]
   bankApps?: BankApplication[]
   expenses?: OfficeExpense[]
-  professionals?: { professional: { id: string; name: string; role: string }; roleInFile: string }[]
+  professionals?: FileProfessional[]
+  communications?: Communication[]
   _count?: { tasks: number; documents: number; bankApps: number }
 }
 
@@ -169,6 +170,49 @@ export type Comment = {
   author: { id: string; name: string; role: Role }
   mentions: { id: string; name: string }[]
   attachments: Attachment[]
+}
+
+export type Communication = {
+  id: string
+  fileId: string
+  occurredAt: string
+  type: string
+  direction: 'IN' | 'OUT' | null
+  sender: string | null
+  recipient: string | null
+  subject: string | null
+  summary: string | null
+  body: string | null
+  followUpTaskId: string | null
+  followUpTask?: { id: string; title: string; status: string; seq: number } | null
+  author?: { id: string; name: string } | null
+  attachments: { id: string; docType: string; fileName: string; storagePath: string | null }[]
+}
+
+export type Professional = {
+  id: string
+  role: string
+  name: string
+  phone: string | null
+  email: string | null
+  organization: string | null
+  address: string | null
+  notes: string | null
+}
+
+export type FileProfessional = {
+  fileId: string
+  professionalId: string
+  roleInFile: string
+  professional: Professional
+}
+
+export type Expense = {
+  id: string
+  fileId: string
+  amount: string
+  details: string
+  spentAt: string
 }
 
 export type Notification = {

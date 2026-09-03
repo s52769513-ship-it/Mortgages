@@ -6,6 +6,9 @@ import { handler, HttpError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
 import { diff, logActivity } from '../lib/activity.js'
 import { withSeq } from '../lib/sequence.js'
+import { parsePaging, parseSort } from '../lib/listing.js'
+
+const TASK_SORTS = ['title', 'status', 'priority', 'dueAt', 'createdAt', 'seq'] as const
 
 export const tasksRouter = Router()
 tasksRouter.use(requireAuth)
@@ -48,8 +51,11 @@ const LIST_INCLUDE = {
 tasksRouter.get(
   '/',
   handler(async (req, res) => {
-    const { q, status, priority, ownerId, fileId, stage, scope, overdue, take = '100', skip = '0' } =
-      req.query as Record<string, string>
+    const { q, status, priority, ownerId, fileId, stage, scope, overdue } = req.query as Record<
+      string,
+      string
+    >
+    const { take, skip } = parsePaging(req.query)
 
     const where = {
       ...(status ? { status: status as TaskStatus } : {}),
@@ -94,9 +100,9 @@ tasksRouter.get(
       prisma.task.findMany({
         where,
         include: LIST_INCLUDE,
-        orderBy: [{ priority: 'desc' }, { dueAt: 'asc' }],
-        take: Math.min(Number(take) || 100, 200),
-        skip: Number(skip) || 0,
+        orderBy: parseSort(req.query, TASK_SORTS, [{ priority: 'desc' }, { dueAt: 'asc' }]),
+        take,
+        skip,
       }),
       prisma.task.count({ where }),
     ])

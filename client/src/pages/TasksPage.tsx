@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { SegmentedControl } from '@/components/ui/Field'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
+import { useListing } from '@/lib/useListing'
 import {
   ActiveFilterChip,
   Column,
@@ -56,8 +57,10 @@ export function TasksPage() {
     setParams(p, { replace: true })
   }
 
+  const listing = useListing(`${search}|${status}|${priority}|${scope}`)
+
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['tasks', search, status, priority, scope],
+    queryKey: ['tasks', search, status, priority, scope, listing.params],
     queryFn: () =>
       api.get<{ items: Task[]; total: number }>(
         `/tasks${qs({
@@ -66,6 +69,7 @@ export function TasksPage() {
           priority,
           scope: scope === 'mine' ? 'mine' : '',
           overdue: scope === 'overdue' ? '1' : '',
+          ...listing.params,
         })}`,
       ),
   })
@@ -77,6 +81,7 @@ export function TasksPage() {
       key: 'title',
       header: 'משימה',
       width: '1.6fr',
+      sortKey: 'title',
       render: (t) => (
         <>
           <span className="block truncate text-[15px] font-medium text-ink">{t.title}</span>
@@ -116,6 +121,7 @@ export function TasksPage() {
       key: 'status',
       header: 'סטטוס',
       width: '1fr',
+      sortKey: 'status',
       render: (t) => (
         <Badge tone={labelOf(TASK_STATUS, t.status).tone}>
           {labelOf(TASK_STATUS, t.status).label}
@@ -126,6 +132,7 @@ export function TasksPage() {
       key: 'priority',
       header: 'עדיפות',
       width: '0.7fr',
+      sortKey: 'priority',
       render: (t) => (
         <span
           className={cn(
@@ -145,6 +152,7 @@ export function TasksPage() {
       key: 'due',
       header: 'יעד',
       width: '0.9fr',
+      sortKey: 'dueAt',
       render: (t) => {
         if (t.status === 'COMPLETED') {
           return (
@@ -270,10 +278,15 @@ export function TasksPage() {
                 </Button>
               )}
               minWidth={1040}
+              sort={listing.sort}
+              onSort={listing.setSort}
             />
             <TableFooter
               shown={data.items.length}
               total={data.total}
+              page={listing.page}
+              pageSize={listing.pageSize}
+              onPage={listing.setPage}
               hint="ריחוף על שורה חושף עריכה"
             />
           </>

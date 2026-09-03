@@ -6,6 +6,9 @@ import { handler, HttpError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
 import { diff, logActivity } from '../lib/activity.js'
 import { withSeq } from '../lib/sequence.js'
+import { parsePaging, parseSort } from '../lib/listing.js'
+
+const APPLICATION_SORTS = ['status', 'requestedAmount', 'submittedAt', 'updatedAt', 'seq'] as const
 
 export const bankAppsRouter = Router()
 bankAppsRouter.use(requireAuth)
@@ -95,10 +98,8 @@ async function resolveContacts(input: {
 bankAppsRouter.get(
   '/',
   handler(async (req, res) => {
-    const { q, status, fileId, bankId, take = '100', skip = '0' } = req.query as Record<
-      string,
-      string
-    >
+    const { q, status, fileId, bankId } = req.query as Record<string, string>
+    const { take, skip } = parsePaging(req.query)
 
     const where = {
       ...(status ? { status: status as BankApplicationStatus } : {}),
@@ -121,9 +122,12 @@ bankAppsRouter.get(
       prisma.bankApplication.findMany({
         where,
         include: LIST_INCLUDE,
-        orderBy: [{ isChosen: 'desc' }, { updatedAt: 'desc' }],
-        take: Math.min(Number(take) || 100, 200),
-        skip: Number(skip) || 0,
+        orderBy: parseSort(req.query, APPLICATION_SORTS, [
+          { isChosen: 'desc' },
+          { updatedAt: 'desc' },
+        ]),
+        take,
+        skip,
       }),
       prisma.bankApplication.count({ where }),
     ])

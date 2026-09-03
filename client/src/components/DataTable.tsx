@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import type { Tone } from '@/lib/labels'
 import { RAILS } from '@/components/ui/Badge'
@@ -17,7 +17,11 @@ export type Column<T> = {
   width: string
   render: (row: T) => ReactNode
   className?: string
+  /** Field the server sorts by; omit for a column that cannot be sorted. */
+  sortKey?: string
 }
+
+export type Sort = { field: string; dir: 'asc' | 'desc' } | null
 
 export function FilterBar({ children }: { children: ReactNode }) {
   return (
@@ -101,6 +105,8 @@ export function DataTable<T extends { id: string }>({
   linkTo,
   rowActions,
   minWidth = 860,
+  sort,
+  onSort,
 }: {
   columns: Column<T>[]
   rows: T[]
@@ -109,8 +115,18 @@ export function DataTable<T extends { id: string }>({
   linkTo?: (row: T) => string
   rowActions?: (row: T) => ReactNode
   minWidth?: number
+  sort?: Sort
+  onSort?: (sort: Sort) => void
 }) {
   const template = columns.map((c) => c.width).join(' ')
+
+  // Clicking the sorted column flips it; a third click clears it.
+  const toggle = (field: string) => {
+    if (!onSort) return
+    if (sort?.field !== field) return onSort({ field, dir: 'desc' })
+    if (sort.dir === 'desc') return onSort({ field, dir: 'asc' })
+    onSort(null)
+  }
 
   return (
     <div className="overflow-x-auto">
@@ -120,11 +136,36 @@ export function DataTable<T extends { id: string }>({
           className="grid items-center gap-4 border-b border-hair px-7 py-4 text-[12px] font-semibold tracking-wide text-ink-muted"
           style={{ gridTemplateColumns: template }}
         >
-          {columns.map((col) => (
-            <span key={col.key} role="columnheader" className={col.className}>
-              {col.header}
-            </span>
-          ))}
+          {columns.map((col) => {
+            const sortable = Boolean(onSort && col.sortKey)
+            const active = sort?.field === col.sortKey
+
+            return (
+              <span key={col.key} role="columnheader" className={col.className}>
+                {sortable ? (
+                  <button
+                    type="button"
+                    onClick={() => toggle(col.sortKey!)}
+                    aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className={cn(
+                      'inline-flex items-center gap-1 transition-colors duration-micro',
+                      active ? 'text-steel-700' : 'hover:text-ink',
+                    )}
+                  >
+                    {col.header}
+                    {active &&
+                      (sort!.dir === 'asc' ? (
+                        <ArrowUp className="size-3.5" />
+                      ) : (
+                        <ArrowDown className="size-3.5" />
+                      ))}
+                  </button>
+                ) : (
+                  col.header
+                )}
+              </span>
+            )
+          })}
         </div>
 
         {rows.map((row, i) => {
@@ -177,13 +218,64 @@ export function DataTable<T extends { id: string }>({
   )
 }
 
-export function TableFooter({ shown, total, hint }: { shown: number; total: number; hint?: string }) {
+export function TableFooter({
+  shown,
+  total,
+  hint,
+  page,
+  pageSize,
+  onPage,
+}: {
+  shown: number
+  total: number
+  hint?: string
+  /** Zero-based. Omit the paging props for a list that shows everything. */
+  page?: number
+  pageSize?: number
+  onPage?: (page: number) => void
+}) {
+  const paged = page !== undefined && pageSize !== undefined && onPage !== undefined
+  const from = paged ? page * pageSize + 1 : 1
+  const to = paged ? page * pageSize + shown : shown
+  const lastPage = paged ? Math.max(0, Math.ceil(total / pageSize) - 1) : 0
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hair px-7 py-4 text-[13.5px] text-ink-muted">
       <span className="numeric" dir="ltr">
-        1—{shown} OF {total}
+        {total === 0 ? '0' : `${from}—${to}`} OF {total}
       </span>
-      {hint && <span>{hint}</span>}
+
+      {paged && total > pageSize && (
+        <span className="flex items-center gap-1">
+          <button
+            onClick={() => onPage(page - 1)}
+            disabled={page === 0}
+            aria-label="העמוד הקודם"
+            className={cn(
+              'rounded-md p-1.5 transition-colors duration-micro',
+              'disabled:opacity-40 enabled:hover:bg-ink/[0.06] enabled:hover:text-ink',
+            )}
+          >
+            <ChevronRight className="size-4" />
+          </button>
+          <span className="numeric px-1" dir="ltr">
+            {page + 1} / {lastPage + 1}
+          </span>
+          <button
+            onClick={() => onPage(page + 1)}
+            disabled={page >= lastPage}
+            aria-label="העמוד הבא"
+            className={cn(
+              'rounded-md p-1.5 transition-colors duration-micro',
+              'disabled:opacity-40 enabled:hover:bg-ink/[0.06] enabled:hover:text-ink',
+            )}
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+        </span>
+      )}
+
+      {hint && <span className="hidden md:inline">{hint}</span>}
     </div>
   )
 }

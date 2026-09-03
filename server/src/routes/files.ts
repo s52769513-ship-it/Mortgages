@@ -5,6 +5,18 @@ import { prisma } from '../lib/prisma.js'
 import { handler, HttpError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
 import { diff, logActivity } from '../lib/activity.js'
+import { parsePaging, parseSort } from '../lib/listing.js'
+
+const FILE_SORTS = [
+  'fileNumber',
+  'stage',
+  'status',
+  'urgency',
+  'requestedAmount',
+  'nextActionDate',
+  'updatedAt',
+  'client.fullName',
+] as const
 
 export const filesRouter = Router()
 filesRouter.use(requireAuth)
@@ -55,8 +67,8 @@ async function nextFileNumber() {
 filesRouter.get(
   '/',
   handler(async (req, res) => {
-    const { q, stage, status, urgency, ownerId, clientId, take = '50', skip = '0' } =
-      req.query as Record<string, string>
+    const { q, stage, status, urgency, ownerId, clientId } = req.query as Record<string, string>
+    const { take, skip } = parsePaging(req.query)
 
     const where = {
       ...(stage ? { stage: stage as FileStage } : {}),
@@ -84,9 +96,9 @@ filesRouter.get(
           targetBank: { select: { id: true, name: true } },
           _count: { select: { tasks: true, documents: true, bankApps: true } },
         },
-        orderBy: [{ urgency: 'desc' }, { updatedAt: 'desc' }],
-        take: Math.min(Number(take) || 50, 200),
-        skip: Number(skip) || 0,
+        orderBy: parseSort(req.query, FILE_SORTS, [{ urgency: 'desc' }, { updatedAt: 'desc' }]),
+        take,
+        skip,
       }),
       prisma.mortgageFile.count({ where }),
     ])

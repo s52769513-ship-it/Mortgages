@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button'
 import { SegmentedControl } from '@/components/ui/Field'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
+import { useListing } from '@/lib/useListing'
 import {
   ActiveFilterChip,
   Column,
@@ -71,11 +72,18 @@ export function DocumentsPage() {
   const [status, setStatus] = useState('')
   const [scope, setScope] = useState<Scope>('all')
 
+  const listing = useListing(`${search}|${status}|${scope}`)
+
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['documents', search, status, scope],
+    queryKey: ['documents', search, status, scope, listing.params],
     queryFn: () =>
       api.get<{ items: Doc[]; total: number }>(
-        `/documents${qs({ q: search, status, outstanding: scope === 'outstanding' ? '1' : '' })}`,
+        `/documents${qs({
+          q: search,
+          status,
+          outstanding: scope === 'outstanding' ? '1' : '',
+          ...listing.params,
+        })}`,
       ),
   })
 
@@ -86,6 +94,7 @@ export function DocumentsPage() {
       key: 'type',
       header: 'סוג המסמך',
       width: '1.5fr',
+      sortKey: 'docType',
       render: (d) => (
         <>
           <span className="block truncate text-[15px] font-medium text-ink">{d.docType}</span>
@@ -114,6 +123,7 @@ export function DocumentsPage() {
       key: 'status',
       header: 'סטטוס',
       width: '0.9fr',
+      sortKey: 'status',
       render: (d) => (
         <Badge tone={labelOf(DOCUMENT_STATUS, d.status).tone}>
           {labelOf(DOCUMENT_STATUS, d.status).label}
@@ -134,6 +144,7 @@ export function DocumentsPage() {
       key: 'received',
       header: 'התקבל',
       width: '0.7fr',
+      sortKey: 'receivedAt',
       render: (d) => (
         <span className="numeric block text-[13.5px] text-ink-subtle" dir="ltr">
           {date(d.receivedAt)}
@@ -144,6 +155,7 @@ export function DocumentsPage() {
       key: 'expires',
       header: 'תפוגה',
       width: '0.7fr',
+      sortKey: 'expiresAt',
       render: (d) => {
         const expired = d.expiresAt && new Date(d.expiresAt) < new Date()
         return (
@@ -263,10 +275,15 @@ export function DocumentsPage() {
             toneOf={(d) => labelOf(DOCUMENT_STATUS, d.status).tone}
             rowActions={(d) => <ReviewActions doc={d} />}
             minWidth={1080}
+            sort={listing.sort}
+            onSort={listing.setSort}
           />
           <TableFooter
             shown={data.items.length}
             total={data.total}
+            page={listing.page}
+            pageSize={listing.pageSize}
+            onPage={listing.setPage}
             hint="ריחוף על שורה חושף אישור או סימון כלא תקין"
           />
         </>

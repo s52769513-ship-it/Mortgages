@@ -6,6 +6,9 @@ import { handler, HttpError, sendError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
 import { diff, logActivity } from '../lib/activity.js'
 import { withSeq } from '../lib/sequence.js'
+import { parsePaging, parseSort } from '../lib/listing.js'
+
+const DOCUMENT_SORTS = ['docType', 'status', 'receivedAt', 'expiresAt', 'version', 'seq'] as const
 import { resolveStored, upload, uploadErrorMessage } from '../lib/storage.js'
 
 export const documentsRouter = Router()
@@ -39,10 +42,8 @@ const OUTSTANDING: DocumentStatus[] = ['REQUIRED', 'REQUESTED', 'UNDER_REVIEW', 
 documentsRouter.get(
   '/',
   handler(async (req, res) => {
-    const { q, status, fileId, outstanding, take = '100', skip = '0' } = req.query as Record<
-      string,
-      string
-    >
+    const { q, status, fileId, outstanding } = req.query as Record<string, string>
+    const { take, skip } = parsePaging(req.query)
 
     const where = {
       ...(status ? { status: status as DocumentStatus } : {}),
@@ -66,9 +67,9 @@ documentsRouter.get(
       prisma.document.findMany({
         where,
         include: LIST_INCLUDE,
-        orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
-        take: Math.min(Number(take) || 100, 200),
-        skip: Number(skip) || 0,
+        orderBy: parseSort(req.query, DOCUMENT_SORTS, [{ status: 'asc' }, { updatedAt: 'desc' }]),
+        take,
+        skip,
       }),
       prisma.document.count({ where }),
     ])

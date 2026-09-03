@@ -13,6 +13,7 @@ import { Checkbox, Input, Select, Textarea } from '@/components/ui/Field'
 import { Modal } from '@/components/ui/Modal'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
+import { useListing } from '@/lib/useListing'
 import {
   ActiveFilterChip,
   Column,
@@ -152,10 +153,14 @@ export function ClientsPage() {
   const [status, setStatus] = useState('')
   const [creating, setCreating] = useState(false)
 
+  const listing = useListing(`${search}|${status}`)
+
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['clients', search, status],
+    queryKey: ['clients', search, status, listing.params],
     queryFn: () =>
-      api.get<{ items: Client[]; total: number }>(`/clients${qs({ q: search, status })}`),
+      api.get<{ items: Client[]; total: number }>(
+        `/clients${qs({ q: search, status, ...listing.params })}`,
+      ),
   })
 
   const filtered = Boolean(search || status)
@@ -165,6 +170,7 @@ export function ClientsPage() {
       key: 'name',
       header: 'שם הלקוח',
       width: '1.3fr',
+      sortKey: 'fullName',
       render: (c) => (
         <span className="block truncate text-[15px] font-medium text-ink">
           {c.fullName}
@@ -196,6 +202,7 @@ export function ClientsPage() {
       key: 'status',
       header: 'סטטוס ליד',
       width: '0.9fr',
+      sortKey: 'leadStatus',
       render: (c) => (
         <Badge tone={labelOf(LEAD_STATUS, c.leadStatus).tone}>
           {labelOf(LEAD_STATUS, c.leadStatus).label}
@@ -216,6 +223,7 @@ export function ClientsPage() {
       key: 'updated',
       header: 'עדכון אחרון',
       width: '0.7fr',
+      sortKey: 'updatedAt',
       render: (c) => <span className="text-[13.5px] text-ink-subtle">{relative(c.updatedAt)}</span>,
     },
   ]
@@ -303,10 +311,15 @@ export function ClientsPage() {
               toneOf={(c) => labelOf(LEAD_STATUS, c.leadStatus).tone}
               linkTo={(c) => `/clients/${c.id}`}
               minWidth={900}
+              sort={listing.sort}
+              onSort={listing.setSort}
             />
             <TableFooter
               shown={data.items.length}
               total={data.total}
+              page={listing.page}
+              pageSize={listing.pageSize}
+              onPage={listing.setPage}
               hint="לחיצה על שורה פותחת את כרטיס הלקוח"
             />
           </>

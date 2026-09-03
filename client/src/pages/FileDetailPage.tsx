@@ -37,10 +37,22 @@ import { BankApplicationModal } from '@/components/BankApplicationModal'
 import { BankApplicationRows } from '@/components/BankApplicationRows'
 import { NewTaskModal } from '@/components/NewTaskModal'
 import { UploadDocumentModal } from '@/components/UploadDocumentModal'
+import { CommunicationsTab } from '@/components/CommunicationsTab'
+import { ExpensesTab } from '@/components/ExpensesTab'
+import { ProfessionalsPanel } from '@/components/ProfessionalsPanel'
 import { EditFileModal } from '@/components/EditFileModal'
 import { TaskOverlay } from '@/components/TaskOverlay'
 
-const TAB_IDS = ['tasks', 'details', 'documents', 'banks', 'chat', 'log'] as const
+const TAB_IDS = [
+  'tasks',
+  'details',
+  'documents',
+  'banks',
+  'communications',
+  'expenses',
+  'chat',
+  'log',
+] as const
 
 export function FileDetailPage() {
   const { id = '' } = useParams()
@@ -191,6 +203,8 @@ export function FileDetailPage() {
                 { id: 'details', label: 'פרטים' },
                 { id: 'documents', label: 'מסמכים', count: documents.length },
                 { id: 'banks', label: 'בנקים', count: bankApps.length },
+                { id: 'communications', label: 'תקשורת' },
+                { id: 'expenses', label: 'הוצאות' },
                 { id: 'chat', label: 'צ׳אט פנימי' },
                 { id: 'log', label: 'יומן' },
               ]}
@@ -397,6 +411,14 @@ export function FileDetailPage() {
               )}
             </TabPanel>
 
+            <TabPanel when="communications" active={tab}>
+              <CommunicationsTab fileId={file.id} />
+            </TabPanel>
+
+            <TabPanel when="expenses" active={tab}>
+              <ExpensesTab file={file} />
+            </TabPanel>
+
             <TabPanel when="chat" active={tab}>
               <InternalChat entityType="MORTGAGE_FILE" entityId={file.id} className="h-[560px]" />
             </TabPanel>
@@ -433,17 +455,13 @@ export function FileDetailPage() {
             </section>
 
             <section className="border-t border-hair pt-3">
-              <h3 className="eyebrow mb-2 text-[12px] text-ink-muted" dir="ltr">
-                People
-              </h3>
               <dl>
                 <FactRow label="אחראי מוביל" value={file.owner?.name} />
                 <FactRow label="בנק יעד" value={file.targetBank?.name} />
-                {file.professionals?.length
-                  ? null
-                  : <FactRow label="אנשי מקצוע" value="טרם שויכו" />}
               </dl>
             </section>
+
+            <ProfessionalsPanel fileId={file.id} professionals={file.professionals ?? []} />
 
             {file.nextAction && (
               <section className="mt-auto border border-steel-600 bg-busy-tint px-4 py-3">

@@ -20,6 +20,7 @@ import { initials } from '@/lib/format'
 import { labelOf, ROLE } from '@/lib/labels'
 import { Button } from '@/components/ui/Button'
 import { NotificationBell } from '@/components/NotificationBell'
+import { GlobalSearch } from '@/components/GlobalSearch'
 
 /** Six entries, no more. Settings, staff and banks live in the user menu. */
 const NAV = [
@@ -127,18 +128,7 @@ export function AppShell() {
             <Menu className="size-5" />
           </button>
 
-          <div className="relative hidden min-w-0 max-w-sm flex-1 sm:block">
-            <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-ink-subtle" />
-            <input
-              type="search"
-              placeholder="חיפוש תיק, לקוח או מסמך…"
-              className={cn(
-                'h-10 w-full rounded-md border border-field bg-surface pe-3 ps-9 text-[15px]',
-                'placeholder:text-ink-faint transition-colors duration-micro ease-standard',
-                'focus:border-steel-600',
-              )}
-            />
-          </div>
+          <GlobalSearch />
 
           <div className="ms-auto flex items-center gap-3">
             <Button size="sm" onClick={() => navigate('/files')}>

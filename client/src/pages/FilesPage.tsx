@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
 import { NewFileModal } from '@/components/NewFileModal'
+import { useListing } from '@/lib/useListing'
 import {
   ActiveFilterChip,
   Column,
@@ -37,10 +38,14 @@ export function FilesPage() {
     setParams(next, { replace: true })
   }
 
+  const listing = useListing(`${search}|${stage}|${status}`)
+
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['files', search, stage, status],
+    queryKey: ['files', search, stage, status, listing.params],
     queryFn: () =>
-      api.get<{ items: MortgageFile[]; total: number }>(`/files${qs({ q: search, stage, status })}`),
+      api.get<{ items: MortgageFile[]; total: number }>(
+        `/files${qs({ q: search, stage, status, ...listing.params })}`,
+      ),
   })
 
   const filtered = Boolean(search || stage || status)
@@ -50,6 +55,7 @@ export function FilesPage() {
       key: 'number',
       header: 'מספר תיק',
       width: '1.1fr',
+      sortKey: 'fileNumber',
       render: (f) => (
         <span className="numeric block truncate text-[14px] font-semibold text-steel-700" dir="ltr">
           {f.fileNumber}
@@ -60,6 +66,7 @@ export function FilesPage() {
       key: 'client',
       header: 'לקוח',
       width: '1.4fr',
+      sortKey: 'client.fullName',
       render: (f) => (
         <>
           <span className="block truncate text-[15px] font-medium text-ink">
@@ -75,6 +82,7 @@ export function FilesPage() {
       key: 'amount',
       header: 'סכום מבוקש',
       width: '0.9fr',
+      sortKey: 'requestedAmount',
       render: (f) => (
         <span className="numeric block truncate text-[14px] text-ink-muted" dir="ltr">
           {money(f.requestedAmount)}
@@ -85,6 +93,7 @@ export function FilesPage() {
       key: 'stage',
       header: 'שלב',
       width: '0.9fr',
+      sortKey: 'stage',
       render: (f) => (
         <Badge tone={labelOf(FILE_STAGE, f.stage).tone}>{labelOf(FILE_STAGE, f.stage).label}</Badge>
       ),
@@ -111,6 +120,7 @@ export function FilesPage() {
       key: 'next',
       header: 'יעד הפעולה הבאה',
       width: '0.9fr',
+      sortKey: 'nextActionDate',
       render: (f) => (
         <span
           className={cn(
@@ -228,10 +238,15 @@ export function FilesPage() {
               toneOf={(f) => labelOf(FILE_STATUS, f.status).tone}
               linkTo={(f) => `/files/${f.id}`}
               minWidth={1100}
+              sort={listing.sort}
+              onSort={listing.setSort}
             />
             <TableFooter
               shown={data.items.length}
               total={data.total}
+              page={listing.page}
+              pageSize={listing.pageSize}
+              onPage={listing.setPage}
               hint="לחיצה על שורה פותחת את דף התיק"
             />
           </>

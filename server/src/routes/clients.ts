@@ -5,6 +5,9 @@ import { prisma } from '../lib/prisma.js'
 import { handler, HttpError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
 import { diff, logActivity } from '../lib/activity.js'
+import { parsePaging, parseSort } from '../lib/listing.js'
+
+const CLIENT_SORTS = ['fullName', 'leadStatus', 'createdAt', 'updatedAt'] as const
 
 export const clientsRouter = Router()
 clientsRouter.use(requireAuth)
@@ -27,7 +30,8 @@ const clientSchema = z.object({
 clientsRouter.get(
   '/',
   handler(async (req, res) => {
-    const { q, status, ownerId, take = '50', skip = '0' } = req.query as Record<string, string>
+    const { q, status, ownerId } = req.query as Record<string, string>
+    const { take, skip } = parsePaging(req.query)
 
     const where = {
       ...(status ? { leadStatus: status as LeadStatus } : {}),
@@ -50,9 +54,9 @@ clientsRouter.get(
           owner: { select: { id: true, name: true } },
           _count: { select: { files: true } },
         },
-        orderBy: { updatedAt: 'desc' },
-        take: Math.min(Number(take) || 50, 200),
-        skip: Number(skip) || 0,
+        orderBy: parseSort(req.query, CLIENT_SORTS, { updatedAt: 'desc' }),
+        take,
+        skip,
       }),
       prisma.client.count({ where }),
     ])

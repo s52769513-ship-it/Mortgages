@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
+import { useListing } from '@/lib/useListing'
 import {
   ActiveFilterChip,
   Column,
@@ -40,11 +41,13 @@ export function BankApplicationsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
 
+  const listing = useListing(`${search}|${status}`)
+
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['bank-applications', search, status],
+    queryKey: ['bank-applications', search, status, listing.params],
     queryFn: () =>
       api.get<{ items: BankApplication[]; total: number }>(
-        `/bank-applications${qs({ q: search, status })}`,
+        `/bank-applications${qs({ q: search, status, ...listing.params })}`,
       ),
   })
 
@@ -84,6 +87,7 @@ export function BankApplicationsPage() {
       key: 'status',
       header: 'סטטוס',
       width: '1fr',
+      sortKey: 'status',
       render: (a) => (
         <Badge tone={labelOf(BANK_APP_STATUS, a.status).tone}>
           {labelOf(BANK_APP_STATUS, a.status).label}
@@ -94,6 +98,7 @@ export function BankApplicationsPage() {
       key: 'amount',
       header: 'סכום מבוקש',
       width: '0.9fr',
+      sortKey: 'requestedAmount',
       render: (a) => (
         <span className="numeric block text-[14px] text-ink-muted" dir="ltr">
           {money(a.requestedAmount)}
@@ -214,10 +219,15 @@ export function BankApplicationsPage() {
             toneOf={(a) => labelOf(BANK_APP_STATUS, a.status).tone}
             linkTo={(a) => `/files/${a.fileId}`}
             minWidth={1180}
+            sort={listing.sort}
+            onSort={listing.setSort}
           />
           <TableFooter
             shown={data.items.length}
             total={data.total}
+            page={listing.page}
+            pageSize={listing.pageSize}
+            onPage={listing.setPage}
             hint="לחיצה על שורה פותחת את התיק"
           />
         </>
