@@ -8,7 +8,7 @@ import { requireAuth, signToken } from '../middleware/auth.js'
 export const authRouter = Router()
 
 const loginSchema = z.object({
-  email: z.string().email('כתובת אימייל לא תקינה'),
+  email: z.string().email('כתובת אימייל לא תקינה').transform((v) => v.trim().toLowerCase()),
   password: z.string().min(1, 'נדרשת סיסמה'),
 })
 

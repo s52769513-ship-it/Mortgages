@@ -14,6 +14,7 @@ import { employeesRouter } from './routes/employees.js'
 import { tasksRouter } from './routes/tasks.js'
 import { documentsRouter } from './routes/documents.js'
 import { bankAppsRouter } from './routes/bankApplications.js'
+import { bootstrapFirstAdmin } from './lib/bootstrap.js'
 
 const app = express()
 
@@ -55,4 +56,7 @@ if (existsSync(clientDist)) {
 }
 
 const port = Number(process.env.PORT) || 4000
+
+await bootstrapFirstAdmin()
+
 app.listen(port, () => console.log(`API listening on http://localhost:${port}`))
