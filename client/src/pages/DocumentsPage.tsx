@@ -13,6 +13,7 @@ import { SegmentedControl } from '@/components/ui/Field'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
 import { useListing } from '@/lib/useListing'
+import { EditDocumentModal } from '@/components/EditDocumentModal'
 import {
   ActiveFilterChip,
   Column,
@@ -71,6 +72,7 @@ export function DocumentsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [scope, setScope] = useState<Scope>('all')
+  const [editing, setEditing] = useState<Doc | null>(null)
 
   const listing = useListing(`${search}|${status}|${scope}`)
 
@@ -273,7 +275,14 @@ export function DocumentsPage() {
             columns={columns}
             rows={data.items}
             toneOf={(d) => labelOf(DOCUMENT_STATUS, d.status).tone}
-            rowActions={(d) => <ReviewActions doc={d} />}
+            rowActions={(d) => (
+              <>
+                <Button size="sm" variant="secondary" onClick={() => setEditing(d)}>
+                  פרטים
+                </Button>
+                <ReviewActions doc={d} />
+              </>
+            )}
             minWidth={1080}
             sort={listing.sort}
             onSort={listing.setSort}
@@ -284,10 +293,12 @@ export function DocumentsPage() {
             page={listing.page}
             pageSize={listing.pageSize}
             onPage={listing.setPage}
-            hint="ריחוף על שורה חושף אישור או סימון כלא תקין"
+            hint="ריחוף על שורה חושף פרטים, אישור או סימון כלא תקין"
           />
         </>
       )}
+
+      {editing && <EditDocumentModal doc={editing} onClose={() => setEditing(null)} />}
     </Card>
   )
 }

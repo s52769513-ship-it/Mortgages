@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Receipt, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Receipt, Trash2 } from 'lucide-react'
 import { api, qs } from '@/api/client'
 import { date, money } from '@/lib/format'
 import type { Expense, MortgageFile } from '@/types'
@@ -12,27 +12,51 @@ import { useToast } from '@/components/ui/Toast'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-function AddModal({ fileId, onClose }: { fileId: string; onClose: () => void }) {
+function ExpenseModal({
+  fileId,
+  expense,
+  onClose,
+}: {
+  fileId: string
+  /** Correcting an expense already on the file. */
+  expense?: Expense | null
+  onClose: () => void
+}) {
   const { notify } = useToast()
   const queryClient = useQueryClient()
-  const [form, setForm] = useState({ amount: '', details: '', spentAt: today() })
+  const [form, setForm] = useState({
+    amount: expense?.amount ?? '',
+    details: expense?.details ?? '',
+    spentAt: expense ? expense.spentAt.slice(0, 10) : today(),
+  })
   const [touched, setTouched] = useState(false)
+  const editing = Boolean(expense)
 
-  const create = useMutation({
+  const save = useMutation({
     mutationFn: () =>
-      api.post<Expense>('/expenses', {
-        fileId,
-        amount: form.amount,
-        details: form.details.trim(),
-        spentAt: form.spentAt || undefined,
-      }),
+      expense
+        ? api.patch<Expense>(`/expenses/${expense.id}`, {
+            amount: form.amount,
+            details: form.details.trim(),
+            spentAt: form.spentAt || undefined,
+          })
+        : api.post<Expense>('/expenses', {
+            fileId,
+            amount: form.amount,
+            details: form.details.trim(),
+            spentAt: form.spentAt || undefined,
+          }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses', fileId] })
       queryClient.invalidateQueries({ queryKey: ['file', fileId] })
-      notify('ההוצאה נרשמה')
+      notify(editing ? 'ההוצאה עודכנה' : 'ההוצאה נרשמה')
       onClose()
     },
-    onError: (e: Error) => notify('רישום ההוצאה נכשל', { tone: 'error', detail: e.message }),
+    onError: (e: Error) =>
+      notify(editing ? 'עדכון ההוצאה נכשל' : 'רישום ההוצאה נכשל', {
+        tone: 'error',
+        detail: e.message,
+      }),
   })
 
   const invalidAmount = !form.amount || Number(form.amount) <= 0
@@ -42,27 +66,27 @@ function AddModal({ fileId, onClose }: { fileId: string; onClose: () => void }) 
     e.preventDefault()
     setTouched(true)
     if (invalidAmount || missingDetails) return
-    create.mutate()
+    save.mutate()
   }
 
   return (
     <Modal
       open
       onClose={onClose}
-      title="הוצאה חדשה"
+      title={editing ? 'עריכת הוצאה' : 'הוצאה חדשה'}
       description="הוצאות המשרד על התיק — שמאות, אגרות, שליחויות."
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
             בטל
           </Button>
-          <Button form="new-expense" type="submit" loading={create.isPending}>
-            שמור
+          <Button form="expense-form" type="submit" loading={save.isPending}>
+            {editing ? 'שמור שינויים' : 'שמור'}
           </Button>
         </>
       }
     >
-      <form id="new-expense" onSubmit={submit} className="space-y-5">
+      <form id="expense-form" onSubmit={submit} className="space-y-5">
         <Input
           label="פירוט"
           required
@@ -100,6 +124,7 @@ export function ExpensesTab({ file }: { file: MortgageFile }) {
   const { notify } = useToast()
   const queryClient = useQueryClient()
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<Expense | null>(null)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['expenses', file.id],
@@ -179,25 +204,47 @@ export function ExpensesTab({ file }: { file: MortgageFile }) {
               <span className="numeric w-24 shrink-0 text-[13px] text-ink-subtle" dir="ltr">
                 {date(expense.spentAt)}
               </span>
-              <span className="min-w-0 flex-1 truncate text-[14.5px] text-ink">
+              <button
+                type="button"
+                onClick={() => setEditing(expense)}
+                className="min-w-0 flex-1 truncate text-start text-[14.5px] text-ink transition-colors duration-micro hover:text-steel-700 hover:underline"
+              >
                 {expense.details}
-              </span>
+              </button>
               <span className="numeric shrink-0 text-[14px] font-medium text-ink" dir="ltr">
                 {money(expense.amount)}
               </span>
-              <button
-                onClick={() => remove.mutate(expense.id)}
-                aria-label={`מחיקת ${expense.details}`}
-                className="shrink-0 rounded p-1 text-ink-subtle opacity-0 transition-all duration-micro hover:text-urgent group-hover:opacity-100 focus-visible:opacity-100"
-              >
-                <Trash2 className="size-3.5" />
-              </button>
+              <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-micro group-hover:opacity-100 group-focus-within:opacity-100">
+                <button
+                  onClick={() => setEditing(expense)}
+                  aria-label={`עריכת ${expense.details}`}
+                  className="rounded p-1 text-ink-subtle transition-colors duration-micro hover:text-ink"
+                >
+                  <Pencil className="size-3.5" />
+                </button>
+                <button
+                  onClick={() => remove.mutate(expense.id)}
+                  aria-label={`מחיקת ${expense.details}`}
+                  className="rounded p-1 text-ink-subtle transition-colors duration-micro hover:text-urgent"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </span>
             </li>
           ))}
         </ul>
       )}
 
-      {adding && <AddModal fileId={file.id} onClose={() => setAdding(false)} />}
+      {adding && <ExpenseModal fileId={file.id} onClose={() => setAdding(false)} />}
+
+      {editing && (
+        <ExpenseModal
+          key={editing.id}
+          fileId={file.id}
+          expense={editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </>
   )
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Building2 } from 'lucide-react'
+import { Building2, Pencil } from 'lucide-react'
 import { api, qs } from '@/api/client'
 import { cn } from '@/lib/cn'
 import { date, money, percent } from '@/lib/format'
@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
+import { BankApplicationModal } from '@/components/BankApplicationModal'
 import { useListing } from '@/lib/useListing'
 import {
   ActiveFilterChip,
@@ -40,6 +41,7 @@ function ApprovalValidity({ until }: { until: string | null }) {
 export function BankApplicationsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const [editing, setEditing] = useState<BankApplication | null>(null)
 
   const listing = useListing(`${search}|${status}`)
 
@@ -218,6 +220,12 @@ export function BankApplicationsPage() {
             rows={data.items}
             toneOf={(a) => labelOf(BANK_APP_STATUS, a.status).tone}
             linkTo={(a) => `/files/${a.fileId}`}
+            rowActions={(a) => (
+              <Button size="sm" variant="secondary" onClick={() => setEditing(a)}>
+                <Pencil className="size-3.5" />
+                ערוך
+              </Button>
+            )}
             minWidth={1180}
             sort={listing.sort}
             onSort={listing.setSort}
@@ -228,9 +236,18 @@ export function BankApplicationsPage() {
             page={listing.page}
             pageSize={listing.pageSize}
             onPage={listing.setPage}
-            hint="לחיצה על שורה פותחת את התיק"
+            hint="לחיצה על שורה פותחת את התיק · ריחוף חושף עריכה"
           />
         </>
+      )}
+
+      {editing && (
+        <BankApplicationModal
+          fileId={editing.fileId}
+          application={editing}
+          open
+          onClose={() => setEditing(null)}
+        />
       )}
     </Card>
   )

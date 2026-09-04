@@ -117,6 +117,7 @@ export type Doc = {
   receivedAt: string | null
   expiresAt: string | null
   allowedForBank: boolean
+  source: string | null
   notes: string | null
   createdAt: string
 }
@@ -129,17 +130,26 @@ export type BankApplication = {
   bankId: string
   bank?: { id: string; name: string }
   branch?: { id: string; name: string; code?: string | null } | null
-  banker?: { id: string; name: string } | null
+  banker?: { id: string; name: string; phone?: string | null } | null
+  bankerPhone?: string | null
+  managerName: string | null
   status: string
   submittedAt: string | null
+  submissionMethod: string | null
   requestedAmount: string | null
   ltvPercent: string | null
   offeredRates: string | null
   mixNotes: string | null
   missingItems: string | null
+  creditCheck: string | null
   approvalInPrinciple: boolean
   approvalDate: string | null
   approvalValidUntil: string | null
+  fileOpened: boolean
+  collateralReceived: boolean
+  sentToReview: boolean
+  sentToExecution: boolean
+  executedAt: string | null
   rejectionReason: string | null
   isChosen: boolean
 }

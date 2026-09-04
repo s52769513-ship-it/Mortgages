@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { handler, HttpError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
-import { logActivity } from '../lib/activity.js'
+import { diff, logActivity } from '../lib/activity.js'
 
 export const expensesRouter = Router()
 expensesRouter.use(requireAuth)
@@ -54,6 +54,28 @@ expensesRouter.post(
       action: `הוצאה נרשמה — ${expense.details}`,
     })
     res.status(201).json(expense)
+  }),
+)
+
+expensesRouter.patch(
+  '/:id',
+  handler(async (req, res) => {
+    // Which file an expense belongs to is not something correcting it changes.
+    const data = expenseSchema.omit({ fileId: true }).partial().parse(req.body)
+
+    const before = await prisma.officeExpense.findUnique({ where: { id: req.params.id } })
+    if (!before) throw new HttpError(404, 'ההוצאה לא נמצאה')
+
+    const expense = await prisma.officeExpense.update({ where: { id: req.params.id }, data })
+
+    await logActivity({
+      entityType: 'MORTGAGE_FILE',
+      entityId: expense.fileId,
+      actorId: req.user!.id,
+      action: `עדכון הוצאה — ${expense.details}`,
+      changes: diff(before, data),
+    })
+    res.json(expense)
   }),
 )
 

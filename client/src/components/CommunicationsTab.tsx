@@ -24,24 +24,63 @@ const BLANK = {
   body: '',
 }
 
-const toLocalInput = () => {
-  const d = new Date()
+/** A datetime-local input wants the viewer's own clock, not UTC. */
+const toLocalInput = (iso?: string | null) => {
+  const d = iso ? new Date(iso) : new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-function LogModal({ fileId, onClose }: { fileId: string; onClose: () => void }) {
+function formOf(entry: Communication): typeof BLANK {
+  return {
+    type: entry.type,
+    direction: entry.direction ?? 'OUT',
+    occurredAt: toLocalInput(entry.occurredAt),
+    sender: entry.sender ?? '',
+    recipient: entry.recipient ?? '',
+    subject: entry.subject ?? '',
+    summary: entry.summary ?? '',
+    body: entry.body ?? '',
+  }
+}
+
+function LogModal({
+  fileId,
+  entry,
+  onClose,
+}: {
+  fileId: string
+  /** Correcting an entry that was already recorded. */
+  entry?: Communication | null
+  onClose: () => void
+}) {
   const { notify } = useToast()
   const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [form, setForm] = useState({ ...BLANK, occurredAt: toLocalInput() })
+  const [form, setForm] = useState(() =>
+    entry ? formOf(entry) : { ...BLANK, occurredAt: toLocalInput() },
+  )
   const [file, setFile] = useState<File | null>(null)
+  const editing = Boolean(entry)
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 
-  const create = useMutation({
+  const save = useMutation({
     mutationFn: () => {
+      if (entry) {
+        return api.patch<Communication>(`/communications/${entry.id}`, {
+          type: form.type,
+          direction: form.direction,
+          occurredAt: form.occurredAt ? new Date(form.occurredAt).toISOString() : undefined,
+          sender: form.sender.trim() || null,
+          recipient: form.recipient.trim() || null,
+          subject: form.subject.trim() || null,
+          summary: form.summary.trim() || null,
+          body: form.body.trim() || null,
+        })
+      }
+
       const body = new FormData()
       body.append('fileId', fileId)
       body.append('type', form.type)
@@ -57,31 +96,36 @@ function LogModal({ fileId, onClose }: { fileId: string; onClose: () => void }) 
       queryClient.invalidateQueries({ queryKey: ['communications', fileId] })
       queryClient.invalidateQueries({ queryKey: ['file', fileId] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      notify('התקשורת נרשמה')
+      notify(editing ? 'הרישום עודכן' : 'התקשורת נרשמה')
       onClose()
     },
-    onError: (e: Error) => notify('הרישום נכשל', { tone: 'error', detail: e.message }),
+    onError: (e: Error) =>
+      notify(editing ? 'העדכון נכשל' : 'הרישום נכשל', { tone: 'error', detail: e.message }),
   })
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    create.mutate()
+    save.mutate()
   }
 
   return (
     <Modal
       open
       onClose={onClose}
-      title="רישום תקשורת"
-      description="שיחה, מייל או פגישה — נשמר בתיק כדי שאפשר יהיה לחזור אליו."
+      title={editing ? 'עריכת רישום תקשורת' : 'רישום תקשורת'}
+      description={
+        editing
+          ? 'תיקון מה שנרשם — התאריך, הצדדים או תוכן השיחה.'
+          : 'שיחה, מייל או פגישה — נשמר בתיק כדי שאפשר יהיה לחזור אליו.'
+      }
       size="lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
             בטל
           </Button>
-          <Button form="log-communication" type="submit" loading={create.isPending}>
-            שמור
+          <Button form="log-communication" type="submit" loading={save.isPending}>
+            {editing ? 'שמור שינויים' : 'שמור'}
           </Button>
         </>
       }
@@ -141,6 +185,9 @@ function LogModal({ fileId, onClose }: { fileId: string; onClose: () => void }) 
           onChange={(e) => set('body', e.target.value)}
         />
 
+        {/* A file is attached when the entry is first recorded; afterwards it
+            belongs to the documents list, which is where it gets replaced. */}
+        {!editing && (
         <div>
           <span className="mb-1.5 block text-[12px] font-semibold text-ink-muted">
             קובץ מצורף
@@ -180,6 +227,7 @@ function LogModal({ fileId, onClose }: { fileId: string; onClose: () => void }) 
             קובץ שיצורף כאן ייכנס גם לרשימת המסמכים של התיק.
           </p>
         </div>
+        )}
       </form>
     </Modal>
   )
@@ -187,6 +235,7 @@ function LogModal({ fileId, onClose }: { fileId: string; onClose: () => void }) 
 
 export function CommunicationsTab({ fileId }: { fileId: string }) {
   const [logging, setLogging] = useState(false)
+  const [editing, setEditing] = useState<Communication | null>(null)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['communications', fileId],
@@ -238,9 +287,13 @@ export function CommunicationsTab({ fileId }: { fileId: string }) {
                         <ArrowUpRight className="size-3.5" />
                       )}
                     </span>
-                    <span className="text-[15px] font-medium text-ink">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(c)}
+                      className="text-[15px] font-medium text-ink transition-colors duration-micro hover:text-steel-700 hover:underline"
+                    >
                       {c.subject || labelOf(COMMUNICATION_TYPE, c.type).label}
-                    </span>
+                    </button>
                     <Badge tone="neutral">{labelOf(COMMUNICATION_TYPE, c.type).label}</Badge>
                   </div>
 
@@ -281,6 +334,15 @@ export function CommunicationsTab({ fileId }: { fileId: string }) {
       )}
 
       {logging && <LogModal fileId={fileId} onClose={() => setLogging(false)} />}
+
+      {editing && (
+        <LogModal
+          key={editing.id}
+          fileId={fileId}
+          entry={editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </>
   )
 }

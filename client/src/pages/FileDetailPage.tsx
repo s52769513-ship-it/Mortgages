@@ -25,7 +25,7 @@ import {
   TASK_STATUS,
   type Stage,
 } from '@/lib/labels'
-import type { MortgageFile, Task } from '@/types'
+import type { BankApplication, Doc, MortgageFile, Task } from '@/types'
 import { Badge, RAILS } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -43,6 +43,7 @@ import { CommunicationsTab } from '@/components/CommunicationsTab'
 import { ExpensesTab } from '@/components/ExpensesTab'
 import { ProfessionalsPanel } from '@/components/ProfessionalsPanel'
 import { EditFileModal } from '@/components/EditFileModal'
+import { EditDocumentModal } from '@/components/EditDocumentModal'
 import { TaskOverlay } from '@/components/TaskOverlay'
 
 const TAB_IDS = [
@@ -69,6 +70,8 @@ export function FileDetailPage() {
   const [editingFile, setEditingFile] = useState(false)
   const [addingDocument, setAddingDocument] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [editingApplication, setEditingApplication] = useState<BankApplication | null>(null)
+  const [editingDocument, setEditingDocument] = useState<Doc | null>(null)
 
   const {
     data: file,
@@ -434,7 +437,13 @@ export function FileDetailPage() {
                           <span className="numeric text-[13px] text-ink-subtle" dir="ltr">
                             {doc.seq}
                           </span>
-                          <span className="min-w-0 truncate">{doc.docType}</span>
+                          <button
+                            type="button"
+                            onClick={() => setEditingDocument(doc)}
+                            className="min-w-0 truncate text-start transition-colors duration-micro hover:text-steel-700 hover:underline"
+                          >
+                            {doc.docType}
+                          </button>
                         </h4>
                         <p className="text-[13px] text-ink-muted">
                           גרסה <span className="numeric" dir="ltr">{doc.version}</span>
@@ -446,6 +455,13 @@ export function FileDetailPage() {
                         </p>
                         <div className="flex items-center justify-between gap-3">
                           <Badge tone={tone}>{labelOf(DOCUMENT_STATUS, doc.status).label}</Badge>
+                          <button
+                            type="button"
+                            onClick={() => setEditingDocument(doc)}
+                            className="text-[13px] font-medium text-ink-muted underline-offset-[3px] hover:text-ink hover:underline"
+                          >
+                            ערוך פרטים
+                          </button>
                           {doc.storagePath && (
                             <a
                               href={`/api/documents/${doc.id}/file`}
@@ -481,7 +497,11 @@ export function FileDetailPage() {
                       בקשה נוספת
                     </Button>
                   </div>
-                  <BankApplicationRows applications={bankApps} fileId={file.id} />
+                  <BankApplicationRows
+                    applications={bankApps}
+                    fileId={file.id}
+                    onEdit={setEditingApplication}
+                  />
                 </>
               )}
             </TabPanel>
@@ -561,9 +581,17 @@ export function FileDetailPage() {
 
       <BankApplicationModal
         fileId={file.id}
-        open={applying}
-        onClose={() => setApplying(false)}
+        application={editingApplication}
+        open={applying || Boolean(editingApplication)}
+        onClose={() => {
+          setApplying(false)
+          setEditingApplication(null)
+        }}
       />
+
+      {editingDocument && (
+        <EditDocumentModal doc={editingDocument} onClose={() => setEditingDocument(null)} />
+      )}
 
       {addingTask && (
         <NewTaskModal

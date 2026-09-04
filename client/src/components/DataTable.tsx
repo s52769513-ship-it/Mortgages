@@ -191,6 +191,12 @@ export function DataTable<T extends { id: string }>({
                   ground rather than blending with the cell beneath it. */}
               {rowActions && (
                 <span
+                  // The whole row is a link. A button sitting on top of it must
+                  // do its own job and not navigate as well.
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
                   className={cn(
                     'absolute inset-y-1 left-3 flex items-center gap-2 rounded-md',
                     'bg-surface px-3 shadow-raised',

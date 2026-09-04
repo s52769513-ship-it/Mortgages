@@ -4,7 +4,7 @@ import { CommunicationType } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { handler, HttpError, sendError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
-import { logActivity } from '../lib/activity.js'
+import { diff, logActivity } from '../lib/activity.js'
 import { upload, uploadErrorMessage } from '../lib/storage.js'
 
 export const communicationsRouter = Router()
@@ -140,20 +140,27 @@ communicationsRouter.patch(
   handler(async (req, res) => {
     const { attachmentIds, ...data } = communicationSchema.partial().parse(req.body)
 
-    if (!(await prisma.communication.findUnique({ where: { id: req.params.id } }))) {
-      throw new HttpError(404, 'הרישום לא נמצא')
-    }
+    const before = await prisma.communication.findUnique({ where: { id: req.params.id } })
+    if (!before) throw new HttpError(404, 'הרישום לא נמצא')
 
-    res.json(
-      await prisma.communication.update({
-        where: { id: req.params.id },
-        data: {
-          ...data,
-          ...(attachmentIds ? { attachments: { set: attachmentIds.map((id) => ({ id })) } } : {}),
-        },
-        include: LIST_INCLUDE,
-      }),
-    )
+    const communication = await prisma.communication.update({
+      where: { id: req.params.id },
+      data: {
+        ...data,
+        ...(attachmentIds ? { attachments: { set: attachmentIds.map((id) => ({ id })) } } : {}),
+      },
+      include: LIST_INCLUDE,
+    })
+
+    await logActivity({
+      entityType: 'MORTGAGE_FILE',
+      entityId: communication.fileId,
+      actorId: req.user!.id,
+      action: `עדכון רישום תקשורת — ${communication.subject || communication.type}`,
+      changes: diff(before, data),
+    })
+
+    res.json(communication)
   }),
 )
 

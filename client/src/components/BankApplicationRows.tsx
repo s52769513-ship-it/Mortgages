@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Star } from 'lucide-react'
+import { Pencil, Star } from 'lucide-react'
 import { api } from '@/api/client'
 import { cn } from '@/lib/cn'
 import { date, money, percent } from '@/lib/format'
@@ -25,9 +25,12 @@ function Fact({ label, value, tone }: { label: string; value: string; tone?: str
 export function BankApplicationRows({
   applications,
   fileId,
+  onEdit,
 }: {
   applications: BankApplication[]
   fileId: string
+  /** Opens the application for editing; the row is the way back into it. */
+  onEdit: (application: BankApplication) => void
 }) {
   const { notify } = useToast()
   const queryClient = useQueryClient()
@@ -70,7 +73,13 @@ export function BankApplicationRows({
                   <span className="numeric text-[13px] text-ink-subtle" dir="ltr">
                     {app.seq}
                   </span>
-                  <span className="text-[15px] font-semibold text-ink">{app.bank?.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(app)}
+                    className="text-[15px] font-semibold text-ink transition-colors duration-micro hover:text-steel-700 hover:underline"
+                  >
+                    {app.bank?.name}
+                  </button>
                   <Badge tone={tone}>{labelOf(BANK_APP_STATUS, app.status).label}</Badge>
                   {app.isChosen && (
                     <Badge tone="ok" dot>
@@ -92,21 +101,37 @@ export function BankApplicationRows({
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => choose.mutate({ id: app.id, isChosen: !app.isChosen })}
-                disabled={choose.isPending}
-                className={cn(
-                  'flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium',
-                  'transition-colors duration-micro ease-standard disabled:opacity-50',
-                  app.isChosen
-                    ? 'text-ok-ink hover:bg-ok-tint'
-                    : 'text-ink-muted hover:bg-ink/[0.04] hover:text-ink',
-                )}
-              >
-                <Star className={cn('size-4', app.isChosen && 'fill-current')} />
-                {app.isChosen ? 'בטל בחירה' : 'בחר בנק זה'}
-              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onEdit(app)}
+                  aria-label={`עריכת הבקשה ל${app.bank?.name}`}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium',
+                    'text-ink-muted transition-colors duration-micro ease-standard',
+                    'hover:bg-ink/[0.04] hover:text-ink',
+                  )}
+                >
+                  <Pencil className="size-4" />
+                  ערוך
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => choose.mutate({ id: app.id, isChosen: !app.isChosen })}
+                  disabled={choose.isPending}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium',
+                    'transition-colors duration-micro ease-standard disabled:opacity-50',
+                    app.isChosen
+                      ? 'text-ok-ink hover:bg-ok-tint'
+                      : 'text-ink-muted hover:bg-ink/[0.04] hover:text-ink',
+                  )}
+                >
+                  <Star className={cn('size-4', app.isChosen && 'fill-current')} />
+                  {app.isChosen ? 'בטל בחירה' : 'בחר בנק זה'}
+                </button>
+              </div>
             </div>
 
             <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-4">
