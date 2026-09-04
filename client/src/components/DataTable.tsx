@@ -98,6 +98,33 @@ export function ActiveFilterChip({ label, onClear }: { label: string; onClear: (
   )
 }
 
+/** A checkbox that never lets its row's link fire underneath it. */
+function RowCheckbox({
+  checked,
+  indeterminate,
+  onToggle,
+  label,
+}: {
+  checked: boolean
+  indeterminate?: boolean
+  onToggle: () => void
+  label: string
+}) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      aria-label={label}
+      ref={(el) => {
+        if (el) el.indeterminate = Boolean(indeterminate) && !checked
+      }}
+      onChange={onToggle}
+      onClick={(e) => e.stopPropagation()}
+      className="size-[17px] shrink-0 cursor-pointer accent-steel-600"
+    />
+  )
+}
+
 export function DataTable<T extends { id: string }>({
   columns,
   rows,
@@ -107,6 +134,8 @@ export function DataTable<T extends { id: string }>({
   minWidth = 860,
   sort,
   onSort,
+  selected,
+  onSelect,
 }: {
   columns: Column<T>[]
   rows: T[]
@@ -117,8 +146,28 @@ export function DataTable<T extends { id: string }>({
   minWidth?: number
   sort?: Sort
   onSort?: (sort: Sort) => void
+  /** Pass both to turn on multi-select; the ids are owned by the page. */
+  selected?: string[]
+  onSelect?: (ids: string[]) => void
 }) {
-  const template = columns.map((c) => c.width).join(' ')
+  const selectable = Boolean(selected && onSelect)
+  const selectedSet = new Set(selected ?? [])
+  const allOnPage = rows.length > 0 && rows.every((r) => selectedSet.has(r.id))
+  const someOnPage = rows.some((r) => selectedSet.has(r.id))
+
+  const toggleRow = (id: string) => {
+    if (!onSelect) return
+    onSelect(selectedSet.has(id) ? (selected ?? []).filter((s) => s !== id) : [...(selected ?? []), id])
+  }
+
+  const toggleAll = () => {
+    if (!onSelect) return
+    const pageIds = rows.map((r) => r.id)
+    if (allOnPage) onSelect((selected ?? []).filter((id) => !pageIds.includes(id)))
+    else onSelect([...new Set([...(selected ?? []), ...pageIds])])
+  }
+
+  const template = [...(selectable ? ['28px'] : []), ...columns.map((c) => c.width)].join(' ')
 
   // Clicking the sorted column flips it; a third click clears it.
   const toggle = (field: string) => {
@@ -133,9 +182,17 @@ export function DataTable<T extends { id: string }>({
       <div style={{ minWidth }} role="table">
         <div
           role="row"
-          className="grid items-center gap-4 border-b border-hair px-7 py-4 text-[12px] font-semibold tracking-wide text-ink-muted"
+          className="grid items-center gap-4 border-s-4 border-s-transparent border-b border-hair px-7 py-4 text-[12px] font-semibold tracking-wide text-ink-muted"
           style={{ gridTemplateColumns: template }}
         >
+          {selectable && (
+            <RowCheckbox
+              checked={allOnPage}
+              indeterminate={someOnPage}
+              onToggle={toggleAll}
+              label="בחירת כל השורות בעמוד"
+            />
+          )}
           {columns.map((col) => {
             const sortable = Boolean(onSort && col.sortKey)
             const active = sort?.field === col.sortKey
@@ -170,6 +227,7 @@ export function DataTable<T extends { id: string }>({
 
         {rows.map((row, i) => {
           const tone = toneOf?.(row) ?? 'neutral'
+          const picked = selectedSet.has(row.id)
           const content = (
             <div
               role="row"
@@ -177,10 +235,15 @@ export function DataTable<T extends { id: string }>({
                 'group relative grid items-center gap-4 border-s-4 px-7 py-4',
                 'transition-colors duration-micro ease-standard hover:bg-ink/[0.04]',
                 i < rows.length - 1 && 'border-b border-b-row',
+                picked && 'bg-steel-100',
                 RAILS[tone],
               )}
               style={{ gridTemplateColumns: template }}
             >
+              {/* The select track is left empty here; the real checkbox sits
+                  outside the row link so it is never nested inside an anchor. */}
+              {selectable && <span aria-hidden />}
+
               {columns.map((col) => (
                 <span key={col.key} role="cell" className={cn('min-w-0', col.className)}>
                   {col.render(row)}
@@ -211,12 +274,27 @@ export function DataTable<T extends { id: string }>({
             </div>
           )
 
-          return linkTo ? (
-            <Link key={row.id} to={linkTo(row)} className="block">
+          const row_ = linkTo ? (
+            <Link to={linkTo(row)} className="block">
               {content}
             </Link>
           ) : (
-            <div key={row.id}>{content}</div>
+            content
+          )
+
+          return selectable ? (
+            <div key={row.id} className="relative">
+              {row_}
+              <span className="absolute inset-y-0 start-8 flex items-center">
+                <RowCheckbox
+                  checked={picked}
+                  onToggle={() => toggleRow(row.id)}
+                  label={`בחירת השורה ${row.id}`}
+                />
+              </span>
+            </div>
+          ) : (
+            <div key={row.id}>{row_}</div>
           )
         })}
       </div>
