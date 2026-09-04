@@ -115,7 +115,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {createPortal(
         <div
           aria-live="polite"
-          className="pointer-events-none fixed bottom-6 left-6 z-[60] flex w-[340px] flex-col gap-3"
+          className={cn(
+            'pointer-events-none fixed z-[60] flex flex-col gap-3',
+            // On a phone the bottom belongs to the tab bar, the speed dial and
+            // the bulk bar, so the toast drops in under the header instead.
+            'inset-x-4 top-[76px]',
+            'md:inset-x-auto md:top-auto md:bottom-6 md:left-6 md:w-[340px]',
+          )}
         >
           {toasts.map((t) => (
             <div key={t.id} className="pointer-events-auto">
