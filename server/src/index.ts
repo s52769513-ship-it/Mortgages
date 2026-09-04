@@ -99,6 +99,27 @@ if (existsSync(clientDist)) {
 
 const port = Number(process.env.PORT) || 4000
 
-await bootstrapFirstAdmin()
+// Start accepting requests first. Creating the first administrator needs the
+// database, and a database that is a second late must not stop the service
+// from coming up — the platform would record that as a crashed deploy.
+const server = app.listen(port, () => console.log(`API listening on port ${port}`))
 
-app.listen(port, () => console.log(`API listening on http://localhost:${port}`))
+bootstrapFirstAdmin().catch((error) => {
+  console.error('Could not check for a first administrator:', error)
+})
+
+// A rejected promise nobody caught is a bug worth seeing in the log, but it is
+// not a reason to drop every open request and restart the office's system.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason)
+})
+
+// Railway sends SIGTERM before replacing the container; finish what is in
+// flight and let go of the database instead of being killed mid-request.
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+  process.on(signal, () => {
+    server.close(() => {
+      prisma.$disconnect().finally(() => process.exit(0))
+    })
+  })
+}
