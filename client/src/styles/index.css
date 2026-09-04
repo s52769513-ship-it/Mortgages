@@ -22,11 +22,11 @@
     --ink-faint: 122 122 125;
     --ink-subtle: 152 152 155;
 
-    /* Anchored on the navy of the Perlstein wordmark (#17395C = steel-700),
-       so the system reads as the same brand as the logo above it. */
-    --steel-900: 11 30 51;
-    --steel-800: 17 44 72;
-    --steel-700: 23 57 92;
+    /* Anchored on the navy of the Perlstein wordmark (#0F365B = steel-700),
+       sampled from the logo itself, so the system reads as the same brand. */
+    --steel-900: 8 27 46;
+    --steel-800: 11 40 67;
+    --steel-700: 15 54 91;
     --steel-600: 34 78 122;
     --steel-500: 58 108 158;
     --steel-400: 104 149 191;
@@ -34,8 +34,8 @@
     --steel-200: 203 222 238;
     --steel-100: 234 242 249;
 
-    /* The gold of the mark. An accent only — it never carries a status. */
-    --gold: 214 165 66;
+    /* The gold of the mark (#D2A64A). An accent only — never a status. */
+    --gold: 210 166 74;
     --gold-ink: 146 104 24;
     --gold-tint: 250 244 230;
 

@@ -15,8 +15,8 @@ type Variant = 'full' | 'mark'
 type Tone = 'light' | 'dark'
 
 const SOURCES: Record<Variant, Record<Tone, string>> = {
-  full: { dark: '/brand/logo.svg', light: '/brand/logo-light.svg' },
-  mark: { dark: '/brand/mark.svg', light: '/brand/mark-light.svg' },
+  full: { dark: '/brand/logo.png', light: '/brand/logo-light.png' },
+  mark: { dark: '/brand/mark.png', light: '/brand/mark-light.png' },
 }
 
 export const BRAND_NAME = 'פרלשטיין'
