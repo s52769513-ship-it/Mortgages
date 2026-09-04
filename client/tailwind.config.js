@@ -50,6 +50,13 @@ export default {
           tint: 'rgb(var(--urgent-tint) / <alpha-value>)',
           ink: 'rgb(var(--urgent-ink) / <alpha-value>)',
         },
+        // Brand accent from the logo mark. Deliberately not a status colour —
+        // nothing in a record ever means "gold".
+        gold: {
+          DEFAULT: 'rgb(var(--gold) / <alpha-value>)',
+          tint: 'rgb(var(--gold-tint) / <alpha-value>)',
+          ink: 'rgb(var(--gold-ink) / <alpha-value>)',
+        },
         rail: 'rgb(var(--neutral-rail) / <alpha-value>)',
       },
       borderColor: {

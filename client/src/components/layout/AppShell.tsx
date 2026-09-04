@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { Logo } from '@/components/Logo'
 import { useAuth } from '@/lib/auth'
 import { initials } from '@/lib/format'
 import { labelOf, ROLE } from '@/lib/labels'
@@ -44,13 +45,10 @@ function Sidebar({ expanded, onNavigate }: { expanded: boolean; onNavigate?: () 
           expanded ? 'px-5' : 'justify-center px-2',
         )}
       >
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-steel-600 text-white">
-          <FolderOpen className="size-[18px]" />
-        </span>
-        {expanded && (
-          <span className="eyebrow text-[13px] text-steel-400" dir="ltr">
-            Mortgage OS
-          </span>
+        {expanded ? (
+          <Logo variant="full" tone="light" height={30} />
+        ) : (
+          <Logo variant="mark" tone="light" height={32} />
         )}
       </div>
 
@@ -68,8 +66,8 @@ function Sidebar({ expanded, onNavigate }: { expanded: boolean; onNavigate?: () 
                 'transition-colors duration-micro ease-standard',
                 expanded ? 'px-4 py-2.5' : 'justify-center py-2.5',
                 isActive
-                  ? 'bg-steel-600 font-medium text-white shadow-button'
-                  : 'text-steel-300 hover:bg-white/[0.08] hover:text-white',
+                  ? 'border-s-[3px] border-gold bg-steel-600 font-medium text-white shadow-button'
+                  : 'border-s-[3px] border-transparent text-steel-300 hover:bg-white/[0.08] hover:text-white',
               )
             }
           >

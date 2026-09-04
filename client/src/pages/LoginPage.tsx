@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { FileText } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Field'
+import { Logo } from '@/components/Logo'
 
 export function LoginPage() {
   const { login } = useAuth()
@@ -28,11 +28,10 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-paper px-4">
       <div className="w-full max-w-sm animate-overlay-in">
         <div className="mb-7 flex flex-col items-center text-center">
-          <span className="mb-4 flex size-12 items-center justify-center rounded-xl bg-steel-600 text-white shadow-raised">
-            <FileText className="size-6" />
-          </span>
-          <h1 className="font-heading text-[26px] font-bold text-ink">ניהול משכנתאות</h1>
-          <p className="mt-1 text-[15px] text-ink-muted">התחברות למערכת</p>
+          <Logo variant="full" height={54} className="mb-4" />
+          {/* A short gold rule picks the accent out of the mark. */}
+          <span className="mb-3 block h-[3px] w-12 rounded-full bg-gold" />
+          <p className="text-[15px] text-ink-muted">התחברות למערכת</p>
         </div>
 
         <form
