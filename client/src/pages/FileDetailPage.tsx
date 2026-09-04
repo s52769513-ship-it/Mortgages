@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   Building2,
+  CalendarClock,
   FileText,
   ListChecks,
   MessageSquare,
@@ -145,22 +146,64 @@ export function FileDetailPage() {
               <Badge tone={labelOf(FILE_STATUS, file.status).tone}>
                 {labelOf(FILE_STATUS, file.status).label}
               </Badge>
+              <Badge tone={labelOf(FILE_STAGE, file.stage).tone}>
+                {labelOf(FILE_STAGE, file.stage).label}
+              </Badge>
               {file.owner && (
                 <span className="text-[14px] text-ink-muted">אחראי: {file.owner.name}</span>
               )}
             </div>
+
+            {/* Key facts row — the information most often needed at a glance. */}
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-ink-muted">
+              {file.requestedAmount && (
+                <span className="flex items-center gap-1.5">
+                  <span className="text-ink-subtle">סכום מבוקש</span>
+                  <span className="numeric font-medium text-ink" dir="ltr">
+                    {money(file.requestedAmount)}
+                  </span>
+                </span>
+              )}
+              {file.executionDeadline && (
+                <span className="flex items-center gap-1.5">
+                  <CalendarClock className="size-3.5" />
+                  <span className="text-ink-subtle">מועד אחרון</span>
+                  <span className="numeric font-medium text-ink" dir="ltr">
+                    {date(file.executionDeadline)}
+                  </span>
+                </span>
+              )}
+              {file.nextAction && (
+                <span className="flex items-center gap-1.5">
+                  <span className="text-ink-subtle">הצעד הבא</span>
+                  <span className="font-medium text-ink">{file.nextAction}</span>
+                  {file.nextActionDate && (
+                    <span className="numeric text-ink-subtle" dir="ltr">
+                      ({date(file.nextActionDate)})
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-4">
-            <Button variant="secondary" onClick={() => setEditingFile(true)}>
-              <Pencil className="size-4" />
-              ערוך תיק
-            </Button>
-            <Button variant="secondary" onClick={() => setAddingTask(true)}>
+          <div className="flex shrink-0 flex-wrap items-center gap-3">
+            <Button variant="secondary" size="sm" onClick={() => setAddingTask(true)}>
               <Plus className="size-4" />
-              משימה חדשה
+              משימה
             </Button>
-            <Button onClick={() => setApplying(true)}>הגש בקשה לבנק</Button>
+            <Button variant="secondary" size="sm" onClick={() => setAddingDocument(true)}>
+              <Upload className="size-4" />
+              מסמך
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setEditingFile(true)}>
+              <Pencil className="size-4" />
+              ערוך
+            </Button>
+            <Button size="sm" onClick={() => setApplying(true)}>
+              <Building2 className="size-4" />
+              בקשה לבנק
+            </Button>
             </div>
           </div>
 

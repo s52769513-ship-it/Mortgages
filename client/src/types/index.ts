@@ -251,6 +251,12 @@ export type Dashboard = {
     activeFiles: number
     waitingOnBank: number
   }
+  trends: {
+    tasksToday: number
+    overdueTasks: number
+    activeFiles: number
+    waitingOnBank: number
+  }
   dueToday: Task[]
   blockedFiles: BlockedFile[]
   activity: ActivityEntry[]

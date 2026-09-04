@@ -9,7 +9,7 @@
 
 export type Tone = 'neutral' | 'busy' | 'ok' | 'wait' | 'urgent'
 
-type Entry = { label: string; tone: Tone }
+export type Entry = { label: string; tone: Tone }
 type Dict = Record<string, Entry>
 
 export const LEAD_STATUS = {

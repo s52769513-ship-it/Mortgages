@@ -15,6 +15,7 @@ export function Modal({
   onClose,
   eyebrow,
   title,
+  'aria-label': ariaLabel,
   description,
   footer,
   size = 'md',
@@ -23,7 +24,8 @@ export function Modal({
   open: boolean
   onClose: () => void
   eyebrow?: string
-  title: ReactNode
+  title?: ReactNode
+  'aria-label'?: string
   description?: ReactNode
   footer?: ReactNode
   size?: 'sm' | 'md' | 'lg'
@@ -83,32 +85,35 @@ export function Modal({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
+        aria-label={ariaLabel}
         className={cn(
           'relative flex max-h-[86vh] w-full flex-col overflow-hidden',
           'rounded-xl bg-surface shadow-modal animate-overlay-in',
           widths[size],
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-hair px-7 py-4">
-          <div className="min-w-0">
-            {eyebrow && (
-              <p className="eyebrow mb-1 text-[12px] text-steel-600" dir="ltr">
-                {eyebrow}
-              </p>
-            )}
-            <h2 className="font-heading text-[20px] font-medium text-ink">{title}</h2>
-            {description && <p className="mt-0.5 text-[13px] text-ink-muted">{description}</p>}
+        {(title || eyebrow || description) && (
+          <div className="flex items-start justify-between gap-4 border-b border-hair px-7 py-4">
+            <div className="min-w-0">
+              {eyebrow && (
+                <p className="eyebrow mb-1 text-[12px] text-steel-600" dir="ltr">
+                  {eyebrow}
+                </p>
+              )}
+              {title && <h2 className="font-heading text-[20px] font-medium text-ink">{title}</h2>}
+              {description && <p className="mt-0.5 text-[13px] text-ink-muted">{description}</p>}
+            </div>
+            <button
+              onClick={onClose}
+              aria-label="סגירה"
+              className="shrink-0 rounded-md p-1.5 text-ink-muted transition-colors duration-micro hover:bg-ink/[0.04] hover:text-ink"
+            >
+              <X className="size-4" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="סגירה"
-            className="shrink-0 rounded-md p-1.5 text-ink-muted transition-colors duration-micro hover:bg-ink/[0.04] hover:text-ink"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+        )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-7 py-5">{children}</div>
+        <div className={cn('min-h-0 flex-1 overflow-y-auto', title || eyebrow || description ? 'px-7 py-5' : '')}>{children}</div>
 
         {footer && (
           <div className="flex items-center justify-end gap-3.5 border-t border-hair px-7 py-4">

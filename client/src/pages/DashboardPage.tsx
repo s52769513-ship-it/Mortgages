@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { CheckCircle2, ShieldCheck } from 'lucide-react'
+import { CheckCircle2, ShieldCheck, AlertTriangle, Clock, FolderX } from 'lucide-react'
 import { api } from '@/api/client'
 import { cn } from '@/lib/cn'
 import { isOverdue, relative, time } from '@/lib/format'
@@ -12,6 +12,56 @@ import { Button } from '@/components/ui/Button'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { PipelineChart } from '@/components/PipelineChart'
+
+function formatDelta(value: number): string {
+  if (value === 0) return 'ללא שינוי מאתמול'
+  const sign = value > 0 ? '+' : ''
+  return `${sign}${value} מאתמול`
+}
+
+function deltaTone(value: number, invert = false): 'ok' | 'urgent' | 'neutral' {
+  if (value === 0) return 'neutral'
+  const positive = invert ? value < 0 : value > 0
+  return positive ? 'ok' : 'urgent'
+}
+
+function AttentionCard({
+  title,
+  count,
+  href,
+  tone,
+  icon: Icon,
+}: {
+  title: string
+  count: number
+  href: string
+  tone: 'urgent' | 'wait' | 'busy'
+  icon: React.ElementType
+}) {
+  const toneClasses = {
+    urgent: 'bg-urgent-tint text-urgent-ink border-urgent/20 hover:border-urgent/40',
+    wait: 'bg-wait-tint text-wait-ink border-wait/20 hover:border-wait/40',
+    busy: 'bg-busy-tint text-busy-ink border-busy/20 hover:border-busy/40',
+  }
+
+  if (count === 0) return null
+
+  return (
+    <Link
+      to={href}
+      className={cn(
+        'flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors duration-micro',
+        toneClasses[tone],
+      )}
+    >
+      <Icon className="size-5 shrink-0" />
+      <span className="min-w-0 flex-1 text-[14px] font-medium">{title}</span>
+      <span className="numeric text-[18px] font-semibold" dir="ltr">
+        {count}
+      </span>
+    </Link>
+  )
+}
 
 function PanelHeader({ title, link }: { title: string; link?: { to: string; label: string } }) {
   return (
@@ -46,7 +96,15 @@ export function DashboardPage() {
   return (
     <>
       <div className="mb-6">
-        <h1 className="font-heading text-[32px] font-bold leading-tight text-ink">דשבורד</h1>
+        <h1 className="font-heading text-[32px] font-bold leading-tight text-ink">
+          {(() => {
+            const hour = new Date().getHours()
+            if (hour < 12) return 'בוקר טוב'
+            if (hour < 17) return 'צהריים טובים'
+            return 'ערב טוב'
+          })()}
+          {data?.activity?.[0]?.actor?.name ? `, ${data.activity[0].actor.name}` : ''}
+        </h1>
         <p className="mt-1 text-[15px] text-ink-muted">
           {new Date().toLocaleDateString('he-IL', {
             weekday: 'long',
@@ -59,43 +117,78 @@ export function DashboardPage() {
 
       {/* Four metrics — no fifth. */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {isLoading || !kpis ? (
+        {isLoading || !data ? (
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[116px] rounded-lg" />)
         ) : (
           <>
             <KpiCard
               label="משימות להיום"
-              value={kpis.tasksToday}
+              value={data.kpis.tasksToday}
               hint="בכל התיקים"
               tone="busy"
+              delta={formatDelta(data.trends.tasksToday)}
+              deltaTone={deltaTone(data.trends.tasksToday)}
               onClick={() => navigate('/tasks')}
             />
             <KpiCard
               label="חורגות מיעד"
-              value={kpis.overdueTasks}
+              value={data.kpis.overdueTasks}
               tone="urgent"
-              accent={kpis.overdueTasks > 0}
-              chip={kpis.overdueTasks > 0 ? 'דורש טיפול' : 'הכול בזמן'}
-              chipTone={kpis.overdueTasks > 0 ? 'urgent' : 'ok'}
+              accent={data.kpis.overdueTasks > 0}
+              chip={data.kpis.overdueTasks > 0 ? 'דורש טיפול' : 'הכול בזמן'}
+              chipTone={data.kpis.overdueTasks > 0 ? 'urgent' : 'ok'}
+              delta={formatDelta(data.trends.overdueTasks)}
+              deltaTone={deltaTone(data.trends.overdueTasks, true)}
               onClick={() => navigate('/tasks?overdue=1')}
             />
             <KpiCard
               label="תיקים פעילים"
-              value={kpis.activeFiles}
+              value={data.kpis.activeFiles}
               tone="busy"
+              delta={formatDelta(data.trends.activeFiles)}
+              deltaTone={deltaTone(data.trends.activeFiles)}
               onClick={() => navigate('/files?status=ACTIVE')}
             />
             <KpiCard
               label="ממתין לבנק"
-              value={kpis.waitingOnBank}
+              value={data.kpis.waitingOnBank}
               tone="wait"
               chip="ממתין למענה"
               chipTone="wait"
+              delta={formatDelta(data.trends.waitingOnBank)}
+              deltaTone={deltaTone(data.trends.waitingOnBank, true)}
               onClick={() => navigate('/tasks?status=WAITING_BANK')}
             />
           </>
         )}
       </div>
+
+      {/* Attention summary — only appears when something needs action. */}
+      {!isLoading && data && (
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <AttentionCard
+            title="משימות חורגות מיעד"
+            count={data.kpis.overdueTasks}
+            href="/tasks?overdue=1"
+            tone="urgent"
+            icon={AlertTriangle}
+          />
+          <AttentionCard
+            title="תיקים חסומים"
+            count={data.blockedFiles.length}
+            href="/files?status=BLOCKED"
+            tone="wait"
+            icon={FolderX}
+          />
+          <AttentionCard
+            title="ממתינים למענה בנק"
+            count={data.kpis.waitingOnBank}
+            href="/tasks?status=WAITING_BANK"
+            tone="busy"
+            icon={Clock}
+          />
+        </div>
+      )}
 
       <Card className="mt-6 overflow-hidden">
         <PanelHeader title="תיקים בצנרת" link={{ to: '/files', label: 'לכל התיקים' }} />

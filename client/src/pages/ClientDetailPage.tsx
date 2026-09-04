@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FolderOpen, Mail, Pencil, Phone, Plus } from 'lucide-react'
 import { api } from '@/api/client'
 import { cn } from '@/lib/cn'
-import { date, money, relative } from '@/lib/format'
+import { date, initials, money, relative } from '@/lib/format'
 import { CONTACT_METHOD, FILE_STAGE, FILE_STATUS, labelOf, LEAD_STATUS } from '@/lib/labels'
 import type { Client } from '@/types'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -56,21 +56,46 @@ export function ClientDetailPage() {
         </nav>
 
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="font-heading text-[32px] font-bold leading-tight text-ink">
-              {client.fullName}
-            </h1>
-            <div className="mt-1.5 flex flex-wrap items-center gap-5 text-[14px] text-ink-muted">
-              <span className="flex items-center gap-1.5" dir="ltr">
-                <Phone className="size-3.5" />
-                <span className="numeric">{client.phone}</span>
-              </span>
-              {client.email && (
+          <div className="flex min-w-0 items-start gap-4">
+            <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-steel-600 text-[18px] font-bold text-white">
+              {initials(client.fullName)}
+            </span>
+            <div className="min-w-0">
+              <h1 className="font-heading text-[32px] font-bold leading-tight text-ink">
+                {client.fullName}
+              </h1>
+              <div className="mt-1.5 flex flex-wrap items-center gap-5 text-[14px] text-ink-muted">
                 <span className="flex items-center gap-1.5" dir="ltr">
-                  <Mail className="size-3.5" />
-                  {client.email}
+                  <Phone className="size-3.5" />
+                  <span className="numeric">{client.phone}</span>
                 </span>
-              )}
+                {client.email && (
+                  <span className="flex items-center gap-1.5" dir="ltr">
+                    <Mail className="size-3.5" />
+                    {client.email}
+                  </span>
+                )}
+              </div>
+              {/* Quick client stats. */}
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
+                <span className="text-ink-subtle">
+                  תיקים:{' '}
+                  <span className="numeric font-medium text-ink">{client.files?.length ?? 0}</span>
+                </span>
+                <span className="text-ink-subtle">
+                  סכום מבוקש כולל:{' '}
+                  <span className="numeric font-medium text-ink" dir="ltr">
+                    {money(
+                      client.files
+                        ?.reduce(
+                          (sum, f) => sum + (f.requestedAmount ? parseFloat(f.requestedAmount) : 0),
+                          0,
+                        )
+                        .toString() ?? '0',
+                    )}
+                  </span>
+                </span>
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   Building2,
+  Command,
   FileText,
   FolderOpen,
   LayoutDashboard,
@@ -21,6 +22,7 @@ import { labelOf, ROLE } from '@/lib/labels'
 import { Button } from '@/components/ui/Button'
 import { NotificationBell } from '@/components/NotificationBell'
 import { GlobalSearch } from '@/components/GlobalSearch'
+import { CommandPalette } from '@/components/CommandPalette'
 
 /** Six entries, no more. Settings, staff and banks live in the user menu. */
 const NAV = [
@@ -86,6 +88,18 @@ export function AppShell() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [commandOpen, setCommandOpen] = useState(false)
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setCommandOpen((open) => !open)
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   const handleLogout = () => {
     logout()
@@ -131,6 +145,16 @@ export function AppShell() {
           <GlobalSearch />
 
           <div className="ms-auto flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setCommandOpen(true)}
+              aria-label="פקודות מהירות"
+              className="hidden items-center gap-2 rounded-md border border-field bg-surface px-3 py-1.5 text-[13px] text-ink-muted transition-colors duration-micro hover:border-steel-600 hover:text-ink sm:flex"
+            >
+              <Command className="size-3.5" />
+              <span>Ctrl+K</span>
+            </button>
+
             <Button size="sm" onClick={() => navigate('/files')}>
               <Plus className="size-4" />
               <span className="hidden sm:inline">תיק חדש</span>
@@ -168,6 +192,8 @@ export function AppShell() {
           </div>
         </main>
       </div>
+
+      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
     </div>
   )
 }

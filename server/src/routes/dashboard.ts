@@ -39,6 +39,18 @@ const endOfToday = () => {
   return d
 }
 
+const startOfYesterday = () => {
+  const d = startOfToday()
+  d.setDate(d.getDate() - 1)
+  return d
+}
+
+const endOfYesterday = () => {
+  const d = startOfToday()
+  d.setMilliseconds(d.getMilliseconds() - 1)
+  return d
+}
+
 /** Four metrics, each one a link into the list it summarises. */
 dashboardRouter.get(
   '/',
@@ -46,6 +58,9 @@ dashboardRouter.get(
     const userId = req.user!.id
     const now = new Date()
     const today = endOfToday()
+
+    const yesterdayStart = startOfYesterday()
+    const yesterdayEnd = endOfYesterday()
 
     const [
       tasksToday,
@@ -56,6 +71,11 @@ dashboardRouter.get(
       blockedFiles,
       activity,
       stageRows,
+      // Trends: compare to the same metric at the end of yesterday.
+      tasksYesterday,
+      overdueYesterday,
+      activeFilesYesterday,
+      waitingOnBankYesterday,
     ] = await Promise.all([
         // Due today only. Anything older is counted as overdue instead, so the
         // two numbers do not describe the same task twice.
@@ -106,10 +126,34 @@ dashboardRouter.get(
           where: { status: { in: ['ACTIVE', 'BLOCKED', 'ON_HOLD'] } },
           _count: { _all: true },
         }),
+
+        prisma.task.count({
+          where: {
+            status: { in: OPEN_TASK_STATES },
+            dueAt: { gte: yesterdayStart, lte: yesterdayEnd },
+          },
+        }),
+        prisma.task.count({
+          where: { status: { in: OPEN_TASK_STATES }, dueAt: { lt: yesterdayStart } },
+        }),
+        prisma.mortgageFile.count({
+          where: { status: 'ACTIVE', createdAt: { lt: yesterdayEnd } },
+        }),
+        prisma.task.count({
+          where: { status: 'WAITING_BANK', createdAt: { lt: yesterdayEnd } },
+        }),
       ])
+
+    const trend = (current: number, previous: number) => current - previous
 
     res.json({
       kpis: { tasksToday, overdueTasks, activeFiles, waitingOnBank },
+      trends: {
+        tasksToday: trend(tasksToday, tasksYesterday),
+        overdueTasks: trend(overdueTasks, overdueYesterday),
+        activeFiles: trend(activeFiles, activeFilesYesterday),
+        waitingOnBank: trend(waitingOnBank, waitingOnBankYesterday),
+      },
       dueToday,
       // "6D · missing documents" — how long each block has been standing.
       blockedFiles: blockedFiles.map((file) => ({
