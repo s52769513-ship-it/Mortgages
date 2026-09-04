@@ -116,3 +116,30 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
 }
+
+/* Ambient motion behind the sign-in screen: a few soft discs in the brand
+   colours, drifting slowly. Purely decorative, and it stops for anyone who
+   has asked their system for less movement. */
+.brand-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(72px);
+  will-change: transform;
+}
+
+@keyframes brand-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(4vw, -3vh, 0) scale(1.14); }
+}
+@keyframes brand-drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.06); }
+  50%      { transform: translate3d(-5vw, 4vh, 0) scale(0.94); }
+}
+@keyframes brand-drift-c {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(0.96); }
+  50%      { transform: translate3d(3vw, 5vh, 0) scale(1.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-orb { animation: none !important; }
+}
