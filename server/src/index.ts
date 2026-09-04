@@ -114,12 +114,43 @@ process.on('unhandledRejection', (reason) => {
   console.error('Unhandled promise rejection:', reason)
 })
 
-// Railway sends SIGTERM before replacing the container; finish what is in
-// flight and let go of the database instead of being killed mid-request.
+// Whatever finally kills this process should say so in the log. Without this a
+// crash is a blank line followed by a restart, and the platform's "deployment
+// crashed" mail is the only evidence that anything happened.
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception — shutting down:', error)
+  process.exit(1)
+})
+
+process.on('exit', (code) => {
+  if (code !== 0) console.error(`Process exiting with code ${code}`)
+})
+
+/**
+ * Railway sends SIGTERM before replacing the container. Stop taking new
+ * requests, let the ones in flight finish, and release the database.
+ *
+ * A keep-alive connection can hold server.close() open indefinitely, and a
+ * shutdown that never finishes gets killed outright — which the platform then
+ * reports as a crash. So the wait is capped.
+ */
+const SHUTDOWN_GRACE_MS = 10_000
+
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
+    console.log(`${signal} received, shutting down`)
+
+    const done = () => prisma.$disconnect().finally(() => process.exit(0))
+    const forced = setTimeout(() => {
+      console.warn('Shutdown took too long; closing anyway')
+      done()
+    }, SHUTDOWN_GRACE_MS)
+    forced.unref()
+
     server.close(() => {
-      prisma.$disconnect().finally(() => process.exit(0))
+      clearTimeout(forced)
+      done()
     })
+    server.closeIdleConnections()
   })
 }
