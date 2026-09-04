@@ -254,6 +254,8 @@ export type BlockedFile = {
   daysBlocked: number
 }
 
+export type DashboardTrend = { kind: 'sinceYesterday' | 'addedToday'; value: number }
+
 export type Dashboard = {
   kpis: {
     tasksToday: number
@@ -261,11 +263,12 @@ export type Dashboard = {
     activeFiles: number
     waitingOnBank: number
   }
+  /** `sinceYesterday` can fall; `addedToday` only ever counts arrivals. */
   trends: {
-    tasksToday: number
-    overdueTasks: number
-    activeFiles: number
-    waitingOnBank: number
+    tasksToday: DashboardTrend
+    overdueTasks: DashboardTrend
+    activeFiles: DashboardTrend
+    waitingOnBank: DashboardTrend
   }
   dueToday: Task[]
   blockedFiles: BlockedFile[]

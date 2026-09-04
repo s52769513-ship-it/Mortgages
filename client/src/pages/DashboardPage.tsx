@@ -13,13 +13,19 @@ import { KpiCard } from '@/components/ui/KpiCard'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { PipelineChart } from '@/components/PipelineChart'
 
-function formatDelta(value: number): string {
+type Trend = { kind: 'sinceYesterday' | 'addedToday'; value: number }
+
+/**
+ * Two different statements. A comparison against yesterday can fall; a count
+ * of what arrived today cannot, so it is never dressed up as one.
+ */
+function formatDelta({ kind, value }: Trend): string {
+  if (kind === 'addedToday') return value === 0 ? 'ללא חדשים היום' : `${value} נוספו היום`
   if (value === 0) return 'ללא שינוי מאתמול'
-  const sign = value > 0 ? '+' : ''
-  return `${sign}${value} מאתמול`
+  return `${value > 0 ? '+' : ''}${value} מאתמול`
 }
 
-function deltaTone(value: number, invert = false): 'ok' | 'urgent' | 'neutral' {
+function deltaTone({ value }: Trend, invert = false): 'ok' | 'urgent' | 'neutral' {
   if (value === 0) return 'neutral'
   const positive = invert ? value < 0 : value > 0
   return positive ? 'ok' : 'urgent'

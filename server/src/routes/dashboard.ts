@@ -71,11 +71,12 @@ dashboardRouter.get(
       blockedFiles,
       activity,
       stageRows,
-      // Trends: compare to the same metric at the end of yesterday.
-      tasksYesterday,
+      // Trends — see the note where they are assembled below.
+      loadToday,
+      loadYesterday,
       overdueYesterday,
-      activeFilesYesterday,
-      waitingOnBankYesterday,
+      filesOpenedToday,
+      startedWaitingToday,
     ] = await Promise.all([
         // Due today only. Anything older is counted as overdue instead, so the
         // two numbers do not describe the same task twice.
@@ -127,32 +128,39 @@ dashboardRouter.get(
           _count: { _all: true },
         }),
 
+        // Today's scheduled load against yesterday's, counting every task
+        // whatever its status. Comparing only the ones still open would put
+        // today's work next to yesterday's leftovers and call it a trend.
         prisma.task.count({
-          where: {
-            status: { in: OPEN_TASK_STATES },
-            dueAt: { gte: yesterdayStart, lte: yesterdayEnd },
-          },
+          where: { dueAt: { gte: startOfToday(), lte: today } },
+        }),
+        prisma.task.count({
+          where: { dueAt: { gte: yesterdayStart, lte: yesterdayEnd } },
         }),
         prisma.task.count({
           where: { status: { in: OPEN_TASK_STATES }, dueAt: { lt: yesterdayStart } },
         }),
+        // Nothing here can fall: a file opened today, or a task that started
+        // waiting today. Reported as additions, never as a change.
         prisma.mortgageFile.count({
-          where: { status: 'ACTIVE', createdAt: { lt: yesterdayEnd } },
+          where: { status: 'ACTIVE', createdAt: { gte: startOfToday() } },
         }),
         prisma.task.count({
-          where: { status: 'WAITING_BANK', createdAt: { lt: yesterdayEnd } },
+          where: { status: 'WAITING_BANK', createdAt: { gte: startOfToday() } },
         }),
       ])
 
-    const trend = (current: number, previous: number) => current - previous
-
     res.json({
       kpis: { tasksToday, overdueTasks, activeFiles, waitingOnBank },
+      /**
+       * Two different things, so the labels differ on screen: `sinceYesterday`
+       * compares like with like, `addedToday` only counts what arrived.
+       */
       trends: {
-        tasksToday: trend(tasksToday, tasksYesterday),
-        overdueTasks: trend(overdueTasks, overdueYesterday),
-        activeFiles: trend(activeFiles, activeFilesYesterday),
-        waitingOnBank: trend(waitingOnBank, waitingOnBankYesterday),
+        tasksToday: { kind: 'sinceYesterday', value: loadToday - loadYesterday },
+        overdueTasks: { kind: 'sinceYesterday', value: overdueTasks - overdueYesterday },
+        activeFiles: { kind: 'addedToday', value: filesOpenedToday },
+        waitingOnBank: { kind: 'addedToday', value: startedWaitingToday },
       },
       dueToday,
       // "6D · missing documents" — how long each block has been standing.

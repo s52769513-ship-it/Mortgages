@@ -10,6 +10,7 @@ import type { MortgageFile } from '@/types'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
 import { NewFileModal } from '@/components/NewFileModal'
@@ -44,6 +45,7 @@ export function FilesPage() {
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [movingId, setMovingId] = useState<string | null>(null)
 
   const queryClient = useQueryClient()
@@ -140,17 +142,47 @@ export function FilesPage() {
     onError: (e: Error) => notify('העברת התיק נכשלה', { tone: 'error', detail: e.message }),
   })
 
-  const bulk = useMutation({
-    mutationFn: async ({ patch }: { patch: Record<string, string>; label: string }) => {
-      // Sequential on purpose: each PATCH writes its own activity entry, and a
-      // burst of parallel writes would interleave them into nonsense.
-      for (const id of selected) await api.patch(`/files/${id}`, patch)
-    },
-    onSuccess: (_result, { label }) => {
-      invalidate()
-      notify(label, { detail: `${selected.length} תיקים עודכנו` })
+  /**
+   * Applies an operation to each selected file in turn and reports what
+   * actually happened. Stopping at the first error would leave the office
+   * looking at a failure message with half the batch already written.
+   *
+   * Sequential on purpose: each write records its own activity entry, and a
+   * burst of parallel writes would interleave them into nonsense.
+   */
+  const runOnSelection = async (act: (id: string) => Promise<unknown>) => {
+    let done = 0
+    const failed: string[] = []
+    for (const id of selected) {
+      try {
+        await act(id)
+        done += 1
+      } catch (e) {
+        failed.push(e instanceof Error ? e.message : String(e))
+      }
+    }
+    return { done, failed }
+  }
+
+  const report = (verb: string, done: number, failed: string[]) => {
+    invalidate()
+    if (!failed.length) {
+      notify(verb, { detail: `${done} תיקים` })
       setSelected([])
-    },
+      return
+    }
+    // Anything that failed stays on screen: an error toast does not
+    // auto-dismiss, and a half-applied batch is worth reading.
+    notify(`${verb} — ${failed.length} נכשלו`, {
+      tone: 'error',
+      detail: `${done} הצליחו · ${failed[0]}`,
+    })
+  }
+
+  const bulk = useMutation({
+    mutationFn: ({ patch }: { patch: Record<string, string>; label: string }) =>
+      runOnSelection((id) => api.patch(`/files/${id}`, patch)),
+    onSuccess: ({ done, failed }, { label }) => report(label, done, failed),
     onError: (e: Error) => {
       invalidate()
       notify('העדכון המרובה נכשל', { tone: 'error', detail: e.message })
@@ -158,13 +190,10 @@ export function FilesPage() {
   })
 
   const bulkDelete = useMutation({
-    mutationFn: async () => {
-      for (const id of selected) await api.delete(`/files/${id}`)
-    },
-    onSuccess: () => {
-      invalidate()
-      notify('התיקים נמחקו', { detail: `${selected.length} תיקים הוסרו` })
-      setSelected([])
+    mutationFn: () => runOnSelection((id) => api.delete(`/files/${id}`)),
+    onSuccess: ({ done, failed }) => {
+      setConfirmingDelete(false)
+      report('התיקים נמחקו', done, failed)
     },
     onError: (e: Error) => {
       invalidate()
@@ -492,14 +521,7 @@ export function FilesPage() {
                   bulk.mutate({ patch: { urgency: value }, label: 'הדחיפות עודכנה' })
                 }
               />
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={() => {
-                  if (window.confirm(`למחוק ${selected.length} תיקים? הפעולה אינה הפיכה.`))
-                    bulkDelete.mutate()
-                }}
-              >
+              <Button size="sm" variant="danger" onClick={() => setConfirmingDelete(true)}>
                 <Trash2 className="size-4" />
                 מחיקה
               </Button>
@@ -513,6 +535,54 @@ export function FilesPage() {
               onPage={listing.setPage}
               hint="לחיצה על שורה פותחת את דף התיק"
             />
+
+            {confirmingDelete && (
+              <Modal
+                open
+                onClose={() => setConfirmingDelete(false)}
+                title={`מחיקת ${selected.length} תיקים`}
+                description="הפעולה אינה הפיכה."
+                footer={
+                  <>
+                    <Button variant="secondary" onClick={() => setConfirmingDelete(false)}>
+                      בטל
+                    </Button>
+                    <Button
+                      variant="danger"
+                      loading={bulkDelete.isPending}
+                      loadingLabel="מוחק…"
+                      onClick={() => bulkDelete.mutate()}
+                    >
+                      מחק לצמיתות
+                    </Button>
+                  </>
+                }
+              >
+                <div className="space-y-4">
+                  <p className="text-[14.5px] leading-relaxed text-ink">
+                    מחיקת תיק מוחקת איתו גם את כל מה שתלוי בו — המשימות, המסמכים
+                    והקבצים שהועלו, הבקשות לבנקים, רישומי התקשורת וההוצאות.
+                  </p>
+                  <ul className="max-h-52 divide-y divide-row overflow-y-auto rounded-md border border-row">
+                    {data.items
+                      .filter((f) => selected.includes(f.id))
+                      .map((f) => (
+                        <li key={f.id} className="flex items-center gap-3 px-4 py-2.5 text-[14px]">
+                          <span className="numeric shrink-0 text-[12.5px] text-ink-subtle" dir="ltr">
+                            {f.fileNumber}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">{f.client?.fullName}</span>
+                        </li>
+                      ))}
+                  </ul>
+                  {selected.some((id) => !data.items.some((f) => f.id === id)) && (
+                    <p className="text-[13px] text-ink-muted">
+                      חלק מהתיקים המסומנים נבחרו בעמודים אחרים ואינם ברשימה כאן.
+                    </p>
+                  )}
+                </div>
+              </Modal>
+            )}
           </>
         )}
       </Card>
