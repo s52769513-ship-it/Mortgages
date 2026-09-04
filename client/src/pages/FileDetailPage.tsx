@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Building2,
   CalendarClock,
+  FileDown,
   FileText,
   ListChecks,
   MessageSquare,
@@ -44,6 +45,7 @@ import { ExpensesTab } from '@/components/ExpensesTab'
 import { ProfessionalsPanel } from '@/components/ProfessionalsPanel'
 import { EditFileModal } from '@/components/EditFileModal'
 import { EditDocumentModal } from '@/components/EditDocumentModal'
+import { BankPackageModal } from '@/components/BankPackageModal'
 import { TaskOverlay } from '@/components/TaskOverlay'
 
 const TAB_IDS = [
@@ -72,6 +74,7 @@ export function FileDetailPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [editingApplication, setEditingApplication] = useState<BankApplication | null>(null)
   const [editingDocument, setEditingDocument] = useState<Doc | null>(null)
+  const [packaging, setPackaging] = useState(false)
 
   const {
     data: file,
@@ -202,6 +205,10 @@ export function FileDetailPage() {
             <Button variant="secondary" size="sm" onClick={() => setEditingFile(true)}>
               <Pencil className="size-4" />
               ערוך
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setPackaging(true)}>
+              <FileDown className="size-4" />
+              תיק לבנק
             </Button>
             <Button size="sm" onClick={() => setApplying(true)}>
               <Building2 className="size-4" />
@@ -592,6 +599,8 @@ export function FileDetailPage() {
       {editingDocument && (
         <EditDocumentModal doc={editingDocument} onClose={() => setEditingDocument(null)} />
       )}
+
+      {packaging && <BankPackageModal file={file} onClose={() => setPackaging(false)} />}
 
       {addingTask && (
         <NewTaskModal

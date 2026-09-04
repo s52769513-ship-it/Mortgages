@@ -6,6 +6,7 @@ import { handler, HttpError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
 import { diff, logActivity } from '../lib/activity.js'
 import { parsePaging, parseSort } from '../lib/listing.js'
+import { buildBankPackage } from '../services/filePackage.js'
 
 const FILE_SORTS = [
   'fileNumber',
@@ -131,6 +132,34 @@ filesRouter.get(
     })
     if (!file) throw new HttpError(404, 'התיק לא נמצא')
     res.json(file)
+  }),
+)
+
+/**
+ * The whole file as one PDF, ready to hand to a bank. A GET, so it can be
+ * opened by a plain link and carried by the session cookie — a download
+ * cannot send an Authorization header.
+ */
+filesRouter.get(
+  '/:id/package',
+  handler(async (req, res) => {
+    const { bytes, fileName, asciiName, attached, skipped } = await buildBankPackage(req.params.id)
+
+    await logActivity({
+      entityType: 'MORTGAGE_FILE',
+      entityId: req.params.id,
+      actorId: req.user!.id,
+      action: `הופקה חבילה לבנק — ${attached} מסמכים${skipped.length ? `, ${skipped.length} לא צורפו` : ''}`,
+    })
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('Cache-Control', 'private, no-store')
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+    )
+    res.send(Buffer.from(bytes))
   }),
 )
 

@@ -9,6 +9,7 @@ import { ClientsPage } from '@/pages/ClientsPage'
 import { ClientDetailPage } from '@/pages/ClientDetailPage'
 import { FilesPage } from '@/pages/FilesPage'
 import { FileDetailPage } from '@/pages/FileDetailPage'
+import { FilePrintPage } from '@/pages/FilePrintPage'
 import { TasksPage } from '@/pages/TasksPage'
 import { DocumentsPage } from '@/pages/DocumentsPage'
 import { BankApplicationsPage } from '@/pages/BankApplicationsPage'
@@ -41,6 +42,8 @@ export function App() {
       {justSignedIn && <WelcomeOverlay name={user.name} onDone={dismissWelcome} />}
       <Routes>
       <Route path="/login" element={<Navigate to="/" replace />} />
+      {/* Outside the shell: a printed page carries no navigation. */}
+      <Route path="files/:id/print" element={<FilePrintPage />} />
       <Route element={<AppShell />}>
         <Route index element={<DashboardPage />} />
         <Route path="clients" element={<ClientsPage />} />
