@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Building2,
   Command,
@@ -9,9 +9,11 @@ import {
   ListChecks,
   LogOut,
   Menu,
+  MoreHorizontal,
   Plus,
   Search,
   UserCog,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react'
@@ -34,6 +36,24 @@ const NAV = [
   { to: '/bank-applications', label: 'בקשות לבנק', icon: Building2 },
   { to: '/employees', label: 'משתמשים', icon: UserCog },
 ]
+
+/**
+ * The thumb reaches the bottom of a phone, not the top. Four destinations sit
+ * there with short labels; the rest open the same drawer the header used to.
+ */
+const MOBILE_NAV = [
+  { to: '/', label: 'דשבורד', icon: LayoutDashboard, end: true },
+  { to: '/files', label: 'תיקים', icon: FolderOpen },
+  { to: '/tasks', label: 'משימות', icon: ListChecks },
+  { to: '/clients', label: 'לקוחות', icon: Users },
+]
+
+/** The FAB's actions, in the order the office needs them. */
+const QUICK_ACTIONS = [
+  { to: '/files?new=1', label: 'תיק חדש', icon: FolderOpen },
+  { to: '/clients?new=1', label: 'לקוח חדש', icon: UserPlus },
+]
+
 
 function Sidebar({ expanded, onNavigate }: { expanded: boolean; onNavigate?: () => void }) {
   return (
@@ -87,8 +107,15 @@ function Sidebar({ expanded, onNavigate }: { expanded: boolean; onNavigate?: () 
 export function AppShell() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
+  const [fabOpen, setFabOpen] = useState(false)
+
+  // The speed dial must not survive the screen it was opened on.
+  useEffect(() => {
+    setFabOpen(false)
+  }, [location.pathname, location.search])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -134,14 +161,6 @@ export function AppShell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-hair bg-surface/90 px-4 backdrop-blur lg:px-6">
-          <button
-            onClick={() => setMobileOpen(true)}
-            aria-label="תפריט"
-            className="rounded-md p-2 text-ink-muted transition-colors duration-micro hover:bg-ink/[0.04] hover:text-ink md:hidden"
-          >
-            <Menu className="size-5" />
-          </button>
-
           <GlobalSearch />
 
           <div className="ms-auto flex items-center gap-3">
@@ -155,9 +174,13 @@ export function AppShell() {
               <span>Ctrl+K</span>
             </button>
 
-            <Button size="sm" onClick={() => navigate('/files')}>
+            <Button
+              size="sm"
+              className="hidden sm:inline-flex"
+              onClick={() => navigate('/files?new=1')}
+            >
               <Plus className="size-4" />
-              <span className="hidden sm:inline">תיק חדש</span>
+              תיק חדש
             </Button>
 
             <NotificationBell />
@@ -185,13 +208,111 @@ export function AppShell() {
           </div>
         </header>
 
-        {/* 12-column grid, 24px gutters, capped at 1600px. */}
-        <main className="flex-1 px-5 py-6 lg:px-6">
+        {/* 12-column grid, 24px gutters, capped at 1600px. The bottom padding
+            clears the mobile tab bar; it collapses to nothing from md up. */}
+        <main className="flex-1 px-5 py-6 pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-6 lg:px-6">
           <div className="mx-auto w-full max-w-[1600px]">
             <Outlet />
           </div>
         </main>
       </div>
+
+      {/* ---- mobile only: speed dial + tab bar ---- */}
+
+      {fabOpen && (
+        <button
+          type="button"
+          aria-label="סגירת הפעולות המהירות"
+          onClick={() => setFabOpen(false)}
+          className="fixed inset-0 z-40 bg-steel-900/40 animate-fade-in md:hidden"
+        />
+      )}
+
+      <div className="fixed bottom-[calc(84px+env(safe-area-inset-bottom))] left-5 z-50 flex flex-col items-start gap-2.5 md:hidden">
+        {fabOpen &&
+          QUICK_ACTIONS.map(({ to, label, icon: Icon }) => (
+            <Link
+              key={to}
+              to={to}
+              onClick={() => setFabOpen(false)}
+              className={cn(
+                'flex items-center gap-2.5 rounded-full border border-hair bg-surface',
+                'py-2.5 pe-4 ps-3 text-[14px] font-medium text-ink shadow-raised animate-overlay-in',
+              )}
+            >
+              <span className="flex size-8 items-center justify-center rounded-full bg-steel-100 text-steel-700">
+                <Icon className="size-4" />
+              </span>
+              {label}
+            </Link>
+          ))}
+
+        <button
+          type="button"
+          onClick={() => setFabOpen((v) => !v)}
+          aria-expanded={fabOpen}
+          aria-label={fabOpen ? 'סגירת הפעולות המהירות' : 'פעולות מהירות'}
+          className={cn(
+            'flex size-14 items-center justify-center rounded-full bg-steel-600 text-white',
+            'shadow-modal transition-transform duration-base ease-standard',
+            'active:scale-95',
+            fabOpen && 'rotate-45',
+          )}
+        >
+          <Plus className="size-6" />
+        </button>
+      </div>
+
+      <nav
+        aria-label="ניווט ראשי"
+        className={cn(
+          'fixed inset-x-0 bottom-0 z-40 border-t border-hair bg-surface/95 backdrop-blur',
+          'pb-[env(safe-area-inset-bottom)] md:hidden',
+        )}
+      >
+        <div className="flex items-stretch">
+          {MOBILE_NAV.map(({ to, label, icon: Icon, end }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                cn(
+                  'flex min-h-[60px] flex-1 flex-col items-center justify-center gap-1 px-1 py-2',
+                  'text-[11px] transition-colors duration-micro ease-standard',
+                  isActive ? 'font-semibold text-steel-700' : 'text-ink-muted',
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <span
+                    className={cn(
+                      'flex h-7 w-12 items-center justify-center rounded-full',
+                      'transition-colors duration-micro ease-standard',
+                      isActive && 'bg-steel-100',
+                    )}
+                  >
+                    <Icon className="size-[19px]" />
+                  </span>
+                  <span className="truncate">{label}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className="flex min-h-[60px] flex-1 flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] text-ink-muted"
+          >
+            <span className="flex h-7 w-12 items-center justify-center">
+              <MoreHorizontal className="size-[19px]" />
+            </span>
+            <span>עוד</span>
+          </button>
+        </div>
+      </nav>
 
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
     </div>

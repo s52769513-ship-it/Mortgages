@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Users } from 'lucide-react'
 import { api, qs } from '@/api/client'
@@ -152,6 +152,16 @@ export function ClientsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [creating, setCreating] = useState(false)
+  const [params, setParams] = useSearchParams()
+
+  // The mobile FAB opens this screen with ?new=1.
+  useEffect(() => {
+    if (!params.get('new')) return
+    setCreating(true)
+    const next = new URLSearchParams(params)
+    next.delete('new')
+    setParams(next, { replace: true })
+  }, [params, setParams])
 
   const listing = useListing(`${search}|${status}`)
 
