@@ -26,8 +26,12 @@ type SeriesKey = (typeof SERIES)[number]['key']
 
 type Hover = { stage: string; key: SeriesKey; count: number; x: number; y: number } | null
 
-/** A stage with one file still has to be visible, and clickable. */
-const MIN_WIDTH = 7
+/**
+ * A stage holding one file still has to be visible and clickable, but the
+ * floor is in pixels, not percent: adding a percentage to every band would
+ * stretch the small ones and the bands would stop being comparable.
+ */
+const MIN_BAND_PX = 10
 
 /**
  * The pipeline drawn as a funnel: one band per stage, top to bottom in the
@@ -50,7 +54,8 @@ export function PipelineChart({ rows }: { rows: PipelineRow[] }) {
 
   const max = Math.max(1, ...totals.map((t) => t.total))
   const grandTotal = totals.reduce((sum, t) => sum + t.total, 0)
-  const widthOf = (total: number) => (total === 0 ? 0 : MIN_WIDTH + (total / max) * (100 - MIN_WIDTH))
+  // Width is the value, straight. A band twice as wide holds twice as many.
+  const widthOf = (total: number) => (total / max) * 100
 
   if (grandTotal === 0) {
     return (
@@ -105,7 +110,10 @@ export function PipelineChart({ rows }: { rows: PipelineRow[] }) {
                   {row.total === 0 ? (
                     <span className="h-[3px] w-8 rounded-full bg-hair" aria-hidden />
                   ) : (
-                    <div className="flex h-8 gap-[2px]" style={{ width: `${width}%` }}>
+                    <div
+                      className="flex h-8 gap-[2px]"
+                      style={{ width: `${width}%`, minWidth: MIN_BAND_PX }}
+                    >
                       {SERIES.map((series, s) => {
                         const count = row[series.key]
                         if (count === 0) return null
