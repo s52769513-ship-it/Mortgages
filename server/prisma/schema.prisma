@@ -232,6 +232,8 @@ model MortgageFile {
   // workflow
   targetBankId   String?
   stage          FileStage  @default(INTAKE)
+  /// When the file entered its current stage — what "stuck" is measured from.
+  stageEnteredAt DateTime?
   status         FileStatus @default(ACTIVE)
   urgency        Urgency    @default(NORMAL)
   blockReason    String?

@@ -71,6 +71,7 @@ dashboardRouter.get(
       blockedFiles,
       activity,
       stageRows,
+      stageAges,
       // Trends — see the note where they are assembled below.
       loadToday,
       loadYesterday,
@@ -128,6 +129,15 @@ dashboardRouter.get(
           _count: { _all: true },
         }),
 
+        // The oldest arrival still standing in each stage. A count says where
+        // the files are; this says where they stopped moving, which is the
+        // difference between a busy stage and a stuck one.
+        prisma.mortgageFile.groupBy({
+          by: ['stage'],
+          where: { status: { in: ['ACTIVE', 'BLOCKED', 'ON_HOLD'] } },
+          _min: { stageEnteredAt: true },
+        }),
+
         // Today's scheduled load against yesterday's, counting every task
         // whatever its status. Comparing only the ones still open would put
         // today's work next to yesterday's leftovers and call it a trend.
@@ -182,11 +192,19 @@ dashboardRouter.get(
         const countFor = (status: string) =>
           rows.find((r) => r.status === status)?._count._all ?? 0
 
+        const since = stageAges.find((a) => a.stage === stage)?._min.stageEnteredAt
+        const total = countFor('ACTIVE') + countFor('BLOCKED') + countFor('ON_HOLD')
+
         return {
           stage,
           active: countFor('ACTIVE'),
           blocked: countFor('BLOCKED'),
           onHold: countFor('ON_HOLD'),
+          /** Days the longest-standing file has been here; null when empty. */
+          oldestDays:
+            since && total > 0
+              ? Math.max(0, Math.floor((now.getTime() - since.getTime()) / 86_400_000))
+              : null,
         }
       }),
     })

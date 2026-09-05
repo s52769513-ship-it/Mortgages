@@ -172,7 +172,8 @@ filesRouter.post(
     if (!client) throw new HttpError(400, 'הלקוח שנבחר לא קיים')
 
     const file = await prisma.mortgageFile.create({
-      data: { ...data, fileNumber: await nextFileNumber() },
+      // The clock on "how long has it stood here" starts now.
+      data: { ...data, fileNumber: await nextFileNumber(), stageEnteredAt: new Date() },
       include: { client: { select: { id: true, fullName: true } } },
     })
     await logActivity({
@@ -192,13 +193,17 @@ filesRouter.patch(
     const before = await prisma.mortgageFile.findUnique({ where: { id: req.params.id } })
     if (!before) throw new HttpError(404, 'התיק לא נמצא')
 
-    const file = await prisma.mortgageFile.update({ where: { id: req.params.id }, data })
+    const movedStage = Boolean(data.stage && data.stage !== before.stage)
+    const file = await prisma.mortgageFile.update({
+      where: { id: req.params.id },
+      // Only a move restarts the clock; editing anything else leaves it alone.
+      data: movedStage ? { ...data, stageEnteredAt: new Date() } : data,
+    })
 
     // Stage and status moves are the events the office actually tracks — label them plainly.
     const changes = diff(before, data)
-    const action =
-      data.stage && data.stage !== before.stage
-        ? 'שינוי שלב'
+    const action = movedStage
+      ? 'שינוי שלב'
         : data.status && data.status !== before.status
           ? 'שינוי מצב התיק'
           : 'עדכון תיק'

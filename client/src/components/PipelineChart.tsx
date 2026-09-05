@@ -8,6 +8,8 @@ export type PipelineRow = {
   active: number
   blocked: number
   onHold: number
+  /** Days the longest-standing file has been in this stage; null when empty. */
+  oldestDays?: number | null
 }
 
 /**
@@ -66,6 +68,13 @@ export function PipelineChart({ rows }: { rows: PipelineRow[] }) {
   }
 
   const busiest = totals.reduce((a, b) => (b.total > a.total ? b : a))
+  // Where nothing has moved for longest. Not the same stage as the busiest
+  // one, and usually the more urgent of the two.
+  const stalest = totals.reduce<(typeof totals)[number] | null>(
+    (worst, row) =>
+      row.total > 0 && (row.oldestDays ?? 0) > (worst?.oldestDays ?? -1) ? row : worst,
+    null,
+  )
 
   return (
     <div className="px-6 py-5">
@@ -91,10 +100,14 @@ export function PipelineChart({ rows }: { rows: PipelineRow[] }) {
           const next = totals[i + 1]
           const nextWidth = next ? widthOf(next.total) : null
           const isBusiest = row.total === busiest.total && row.total > 0
+          const isStalest = stalest?.stage === row.stage && (row.oldestDays ?? 0) > 0
 
           return (
             <div key={row.stage}>
-              <div className="grid items-center gap-4" style={{ gridTemplateColumns: '132px 1fr 52px' }}>
+              <div
+                className="grid items-center gap-4"
+                style={{ gridTemplateColumns: '132px 1fr 40px 56px' }}
+              >
                 <span
                   className={cn(
                     'truncate text-[13.5px]',
@@ -162,12 +175,33 @@ export function PipelineChart({ rows }: { rows: PipelineRow[] }) {
                 >
                   {row.total}
                 </span>
+
+                {/* How long the oldest file here has been waiting. A narrow
+                    stage with a large number is a file nobody is touching. */}
+                <span
+                  className={cn(
+                    'text-[12.5px] tabular-nums',
+                    isStalest ? 'font-semibold text-urgent-ink' : 'text-ink-subtle',
+                  )}
+                  title={
+                    row.oldestDays === null || row.oldestDays === undefined
+                      ? undefined
+                      : `הוותיק בשלב: ${row.oldestDays} ימים`
+                  }
+                >
+                  {row.total === 0 || row.oldestDays === null || row.oldestDays === undefined
+                    ? '—'
+                    : `${row.oldestDays} ימ׳`}
+                </span>
               </div>
 
               {/* The taper between two stages. Recessive: it is the shape, not
                   a value — the numbers are on the bands themselves. */}
               {nextWidth !== null && (
-                <div className="grid gap-4" style={{ gridTemplateColumns: '132px 1fr 52px' }}>
+                <div
+                  className="grid gap-4"
+                  style={{ gridTemplateColumns: '132px 1fr 40px 56px' }}
+                >
                   <span />
                   <div
                     className="h-3 bg-steel-700/[0.09]"
@@ -177,6 +211,7 @@ export function PipelineChart({ rows }: { rows: PipelineRow[] }) {
                     }}
                   />
                   <span />
+                  <span />
                 </div>
               )}
             </div>
@@ -185,8 +220,9 @@ export function PipelineChart({ rows }: { rows: PipelineRow[] }) {
       </div>
 
       <p className="mt-4 border-t border-hair pt-3 text-[12.5px] leading-relaxed text-ink-subtle">
-        רוחב הפס הוא מספר התיקים באותו שלב. שלב רחב מזה שמעליו הוא תור שאינו
-        מתפנה — שם העומס. לחיצה על פס פותחת את רשימת התיקים באותו שלב.
+        רוחב הפס הוא מספר התיקים באותו שלב, והמספר משמאלו הוא כמה ימים התיק
+        הוותיק שם ממתין. שלב צר עם מספר ימים גבוה הוא תיק שאיש אינו נוגע בו —
+        לרוב דחוף יותר משלב רחב שזז. לחיצה על פס פותחת את התיקים באותו שלב.
       </p>
 
       {hover && (
