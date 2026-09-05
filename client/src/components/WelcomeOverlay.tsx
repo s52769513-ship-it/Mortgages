@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { FolderOpen } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { Logo } from '@/components/Logo'
 
 function greeting() {
   const hour = new Date().getHours()
@@ -10,13 +10,19 @@ function greeting() {
   return 'ערב טוב'
 }
 
-/** Shown once, right after signing in — not on every page load. */
+/**
+ * Shown once, right after signing in — not on every page load.
+ *
+ * A small card rather than a full screen: the dashboard is already loading
+ * behind it, and covering the whole system to say hello puts a wall between
+ * the agent and the work they came to do.
+ */
 export function WelcomeOverlay({ name, onDone }: { name: string; onDone: () => void }) {
   const [leaving, setLeaving] = useState(false)
 
   useEffect(() => {
-    const fade = setTimeout(() => setLeaving(true), 1900)
-    const done = setTimeout(onDone, 2300)
+    const fade = setTimeout(() => setLeaving(true), 1800)
+    const done = setTimeout(onDone, 2200)
     return () => {
       clearTimeout(fade)
       clearTimeout(done)
@@ -28,24 +34,25 @@ export function WelcomeOverlay({ name, onDone }: { name: string; onDone: () => v
       role="status"
       onClick={onDone}
       className={cn(
-        'fixed inset-0 z-[70] flex cursor-pointer flex-col items-center justify-center bg-steel-900',
+        'fixed inset-0 z-[70] flex cursor-pointer items-center justify-center px-4',
+        // A wash rather than a blackout: the system stays visible behind it.
+        'bg-steel-900/25 backdrop-blur-[2px]',
         'transition-opacity duration-overlay ease-standard',
         leaving ? 'opacity-0' : 'opacity-100',
       )}
     >
-      <span
+      <div
         className={cn(
-          'mb-6 flex size-16 items-center justify-center rounded-xl bg-steel-600 text-white shadow-modal',
-          'transition-transform duration-slow ease-standard',
-          leaving ? 'scale-95' : 'scale-100',
+          'w-full max-w-xs rounded-xl border border-row bg-surface px-7 py-6 text-center shadow-modal',
+          'transition-all duration-slow ease-standard',
+          leaving ? 'translate-y-1 scale-[0.98]' : 'translate-y-0 scale-100',
         )}
       >
-        <FolderOpen className="size-8" />
-      </span>
-
-      <p className="text-[15px] text-steel-300">{greeting()}</p>
-      <h1 className="mt-1.5 font-heading text-[34px] font-bold text-white">{name}</h1>
-      <p className="mt-4 text-[14px] text-steel-400">ניהול משכנתאות</p>
+        <Logo variant="mark" height={40} className="mx-auto mb-4" />
+        <p className="text-[13.5px] text-ink-muted">{greeting()}</p>
+        <p className="mt-0.5 font-heading text-[21px] font-bold leading-tight text-ink">{name}</p>
+        <span className="mx-auto mt-3.5 block h-[3px] w-10 rounded-full bg-gold" />
+      </div>
     </div>
   )
 }
