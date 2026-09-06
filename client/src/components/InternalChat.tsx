@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AtSign, Check, FileText, Mic, Paperclip, Send, Square, Trash2, X } from 'lucide-react'
 import { api } from '@/api/client'
 import { useVoiceRecorder } from '@/lib/useVoiceRecorder'
+import { VoiceNote } from '@/components/VoiceNote'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { dateTime, initials, relative } from '@/lib/format'
@@ -35,14 +36,11 @@ function AttachmentView({ attachment, mine }: { attachment: Attachment; mine: bo
 
   if (attachment.kind === 'VOICE') {
     return (
-      <div className="mt-2 space-y-1">
-        <audio controls src={url} className="h-9 w-full max-w-[240px]" />
-        {attachment.durationMs && (
-          <span className={cn('numeric text-[11.5px]', mine ? 'text-white/70' : 'text-ink-subtle')}>
-            {formatDuration(attachment.durationMs)}
-          </span>
-        )}
-      </div>
+      <VoiceNote
+        url={url}
+        durationLabel={attachment.durationMs ? formatDuration(attachment.durationMs) : undefined}
+        mine={mine}
+      />
     )
   }
 

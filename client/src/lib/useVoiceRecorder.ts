@@ -22,6 +22,17 @@ export type RecorderProblem = 'unsupported' | 'denied' | 'failed'
  * page served over plain http, have neither — worth knowing before offering
  * the button rather than after the click fails.
  */
+/**
+ * Formats to try, best first. Safari records and plays mp4 but has never
+ * played the WebM that Chrome produces, so a note recorded in one browser
+ * can be unplayable in the other. Where a browser offers mp4 we take it;
+ * Chrome offers only WebM, and there the choice does not exist.
+ */
+const PREFERRED_TYPES = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm']
+
+const pickType = () =>
+  PREFERRED_TYPES.find((type) => MediaRecorder.isTypeSupported?.(type)) ?? ''
+
 export const recordingSupported = () =>
   typeof window !== 'undefined' &&
   typeof MediaRecorder !== 'undefined' &&
@@ -63,7 +74,10 @@ export function useVoiceRecorder(onDone: (recording: Recording) => void) {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
+      const preferred = pickType()
+      const recorder = preferred
+        ? new MediaRecorder(stream, { mimeType: preferred })
+        : new MediaRecorder(stream)
       chunksRef.current = []
       discardRef.current = false
       startedAtRef.current = Date.now()
@@ -77,7 +91,7 @@ export function useVoiceRecorder(onDone: (recording: Recording) => void) {
 
         if (discardRef.current || durationMs < TOO_SHORT_MS) return
 
-        const extension = type.includes('mp4') ? 'm4a' : 'webm'
+        const extension = type.includes('mp4') || type.includes('mpeg') ? 'm4a' : 'webm'
         onDoneRef.current({
           file: new File([blob], `voice-${Date.now()}.${extension}`, { type: blob.type }),
           durationMs,
