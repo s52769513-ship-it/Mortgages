@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Users } from 'lucide-react'
+import { MoreHorizontal, Plus, SlidersHorizontal, Upload, Users } from 'lucide-react'
 import { api, qs } from '@/api/client'
 import { relative } from '@/lib/format'
 import { labelOf, LEAD_STATUS, options } from '@/lib/labels'
@@ -12,6 +12,10 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
 import { useListing } from '@/lib/useListing'
 import { NewLeadModal } from '@/components/NewLeadModal'
+import { ImportClientsModal } from '@/components/ImportClientsModal'
+import { CustomFieldsModal } from '@/components/CustomFieldsModal'
+import { Menu, MenuItem } from '@/components/ui/Menu'
+import { cn } from '@/lib/cn'
 import {
   ActiveFilterChip,
   Column,
@@ -26,6 +30,8 @@ export function ClientsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [managingFields, setManagingFields] = useState(false)
   const [params, setParams] = useSearchParams()
 
   // The mobile FAB opens this screen with ?new=1.
@@ -129,10 +135,53 @@ export function ClientsPage() {
               </p>
             )}
           </div>
-          <Button onClick={() => setCreating(true)}>
-            <Plus className="size-4" />
-            ליד חדש
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setCreating(true)}>
+              <Plus className="size-4" />
+              ליד חדש
+            </Button>
+
+            <Menu
+              label="פעולות נוספות ברשימת הלקוחות"
+              align="end"
+              width={230}
+              className="shrink-0"
+              trigger={({ open }) => (
+                <span
+                  className={cn(
+                    'flex size-11 items-center justify-center rounded-md border border-field text-ink-muted md:size-9',
+                    'transition-colors duration-micro ease-standard hover:bg-ink/[0.04] hover:text-ink',
+                    open && 'bg-ink/[0.06] text-ink',
+                  )}
+                >
+                  <MoreHorizontal className="size-4" />
+                </span>
+              )}
+            >
+              {(close) => (
+                <>
+                  <MenuItem
+                    onClick={() => {
+                      close()
+                      setImporting(true)
+                    }}
+                  >
+                    <Upload className="size-4" />
+                    ייבוא לקוחות מקובץ
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      close()
+                      setManagingFields(true)
+                    }}
+                  >
+                    <SlidersHorizontal className="size-4" />
+                    שדות שהוספתם
+                  </MenuItem>
+                </>
+              )}
+            </Menu>
+          </div>
         </div>
 
         <FilterBar>
@@ -211,6 +260,8 @@ export function ClientsPage() {
       </Card>
 
       <NewLeadModal open={creating} onClose={() => setCreating(false)} />
+      <ImportClientsModal open={importing} onClose={() => setImporting(false)} />
+      <CustomFieldsModal open={managingFields} onClose={() => setManagingFields(false)} />
     </>
   )
 }

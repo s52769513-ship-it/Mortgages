@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { CONTACT_METHOD, LEAD_STATUS, options } from '@/lib/labels'
-import type { Client, Employee } from '@/types'
+import type { Client, CustomField, Employee } from '@/types'
 import { Button } from '@/components/ui/Button'
 import { Checkbox, Input, Select, Textarea } from '@/components/ui/Field'
 import { Modal } from '@/components/ui/Modal'
@@ -35,6 +35,17 @@ export function EditClientModal({
     introNotes: client.introNotes ?? '',
   })
 
+  // The office's own fields, held as text while being edited and converted on
+  // the way out — an empty box means the value was cleared, not left alone.
+  const [custom, setCustom] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      Object.entries(client.custom ?? {}).map(([key, value]) => [
+        key,
+        typeof value === 'boolean' ? String(value) : String(value ?? ''),
+      ]),
+    ),
+  )
+
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 
@@ -43,6 +54,13 @@ export function EditClientModal({
     queryFn: () => api.get<Employee[]>('/employees'),
     enabled: open,
   })
+
+  const { data: fields } = useQuery({
+    queryKey: ['custom-fields', 'CLIENT'],
+    queryFn: () => api.get<{ items: CustomField[] }>('/custom-fields?entity=CLIENT'),
+    enabled: open,
+  })
+  const customFields = fields?.items ?? []
 
   const save = useMutation({
     mutationFn: () => {
@@ -60,6 +78,7 @@ export function EditClientModal({
         preferredContact: form.preferredContact,
         doNotContact: form.doNotContact,
         introNotes: orNull(form.introNotes),
+        ...(customFields.length ? { custom } : {}),
       })
     },
     onSuccess: () => {
@@ -172,6 +191,52 @@ export function EditClientModal({
           checked={form.doNotContact}
           onChange={(e) => set('doNotContact', e.target.checked)}
         />
+
+        {customFields.length > 0 && (
+          <div className="space-y-4 border-t border-hair pt-5">
+            <p className="text-[12px] font-semibold text-ink-muted">שדות שהוספתם</p>
+            <div className="grid gap-5 sm:grid-cols-2">
+              {customFields.map((field) => {
+                const value = custom[field.key] ?? ''
+                const change = (next: string) =>
+                  setCustom((prev) => ({ ...prev, [field.key]: next }))
+
+                if (field.type === 'BOOLEAN') {
+                  return (
+                    <Checkbox
+                      key={field.id}
+                      label={field.label}
+                      checked={value === 'true'}
+                      onChange={(e) => change(e.target.checked ? 'true' : '')}
+                    />
+                  )
+                }
+                if (field.type === 'SELECT') {
+                  return (
+                    <Select
+                      key={field.id}
+                      label={field.label}
+                      placeholder="ללא"
+                      options={field.options.map((o) => ({ value: o, label: o }))}
+                      value={value}
+                      onChange={(e) => change(e.target.value)}
+                    />
+                  )
+                }
+                return (
+                  <Input
+                    key={field.id}
+                    label={field.label}
+                    type={field.type === 'NUMBER' ? 'number' : field.type === 'DATE' ? 'date' : 'text'}
+                    dir={field.type === 'TEXT' ? undefined : 'ltr'}
+                    value={field.type === 'DATE' ? value.slice(0, 10) : value}
+                    onChange={(e) => change(e.target.value)}
+                  />
+                )
+              })}
+            </div>
+          </div>
+        )}
       </form>
     </Modal>
   )

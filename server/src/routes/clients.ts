@@ -1,12 +1,13 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { Availability, ClientPriority, ContactMethod, LeadStatus } from '@prisma/client'
+import { Availability, ClientPriority, ContactMethod, EntityType, LeadStatus } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { handler, HttpError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
 import { diff, logActivity } from '../lib/activity.js'
 import { parsePaging, parseSort } from '../lib/listing.js'
 import { deleteClientDeep } from '../services/deletion.js'
+import { normaliseCustom } from './customFields.js'
 
 const CLIENT_SORTS = ['fullName', 'leadStatus', 'createdAt', 'updatedAt'] as const
 
@@ -14,8 +15,10 @@ export const clientsRouter = Router()
 clientsRouter.use(requireAuth)
 
 const clientSchema = z.object({
-  fullName: z.string().min(2, 'שם מלא חייב להכיל לפחות 2 תווים'),
-  phone: z.string().min(6, 'מספר טלפון לא תקין'),
+  fullName: z
+    .string({ required_error: 'חסר שם מלא' })
+    .min(2, 'שם מלא חייב להכיל לפחות 2 תווים'),
+  phone: z.string({ required_error: 'חסר מספר טלפון' }).min(6, 'מספר טלפון לא תקין'),
   email: z.string().email('כתובת אימייל לא תקינה').nullish().or(z.literal('')),
   leadStatus: z.nativeEnum(LeadStatus).optional(),
   referralSource: z.string().nullish(),
@@ -40,7 +43,20 @@ const clientSchema = z.object({
   availEmail: z.nativeEnum(Availability).nullish(),
   availWhatsapp: z.nativeEnum(Availability).nullish(),
   availPhone: z.nativeEnum(Availability).nullish(),
+
+  /// Values for the office's own fields; anything not declared is dropped.
+  custom: z.record(z.unknown()).optional(),
 })
+
+/** Two numbers are the same number whatever punctuation was typed around them. */
+const digitsOf = (phone: string) => phone.replace(/\D/g, '')
+
+async function customFieldDefs() {
+  return prisma.customField.findMany({
+    where: { entityType: EntityType.CLIENT },
+    select: { key: true, type: true },
+  })
+}
 
 clientsRouter.get(
   '/',
@@ -111,8 +127,13 @@ clientsRouter.post(
   '/',
   handler(async (req, res) => {
     const data = clientSchema.parse(req.body)
+    const { custom, ...rest } = data
     const client = await prisma.client.create({
-      data: { ...data, email: data.email || null },
+      data: {
+        ...rest,
+        email: data.email || null,
+        ...(custom ? { custom: normaliseCustom(custom, await customFieldDefs()) } : {}),
+      },
     })
     await logActivity({
       entityType: 'CLIENT',
@@ -131,16 +152,40 @@ clientsRouter.patch(
     const before = await prisma.client.findUnique({ where: { id: req.params.id } })
     if (!before) throw new HttpError(404, 'הלקוח לא נמצא')
 
+    const { custom, ...rest } = data
+    const fields = custom ? await customFieldDefs() : []
+    // Sent whole, not merged: the edit form submits every field it knows
+    // about, so a key left out of the object is a value that was cleared.
+    const nextCustom = custom ? normaliseCustom(custom, fields) : undefined
+
     const client = await prisma.client.update({
       where: { id: req.params.id },
-      data: { ...data, ...(data.email === '' ? { email: null } : {}) },
+      data: {
+        ...rest,
+        ...(data.email === '' ? { email: null } : {}),
+        ...(nextCustom ? { custom: nextCustom } : {}),
+      },
     })
+
+    // The office's own fields are one JSON column, which would log as a single
+    // unreadable change; they are compared key by key so the log stays useful.
+    const previous = (before.custom ?? {}) as Record<string, unknown>
+    const customChanges = nextCustom
+      ? fields
+          .map((f) => ({
+            field: f.key,
+            oldValue: previous[f.key] ?? null,
+            newValue: (nextCustom as Record<string, unknown>)[f.key] ?? null,
+          }))
+          .filter((c) => String(c.oldValue ?? '') !== String(c.newValue ?? ''))
+      : []
+
     await logActivity({
       entityType: 'CLIENT',
       entityId: client.id,
       actorId: req.user!.id,
       action: 'עדכון לקוח',
-      changes: diff(before, data),
+      changes: [...diff(before, rest), ...customChanges],
     })
     res.json(client)
   }),
@@ -153,6 +198,88 @@ clientsRouter.patch(
  * Without it a client who still has files is refused, and the refusal names
  * how many, so the screen can say what it is asking about.
  */
+/**
+ * Bulk import, one batch at a time.
+ *
+ * Rows arrive already mapped to field names by the screen that read the
+ * spreadsheet — the mapping is a decision a person makes, not a guess the
+ * server should be making on its own. What the server does is refuse what
+ * cannot be a client, recognise a number it already holds, and report each
+ * row by its line in the sheet so a failure can be found and fixed there.
+ *
+ * Rows are handled one at a time on purpose. A single bad row in a batch of
+ * two hundred should cost that row, not the other hundred and ninety-nine.
+ */
+const importSchema = z.object({
+  rows: z
+    .array(z.object({ index: z.number().int().nonnegative(), data: z.record(z.unknown()) }))
+    .min(1)
+    .max(500, 'לכל היותר 500 שורות בכל מנה'),
+  /** What to do with a phone number that is already in the system. */
+  onDuplicate: z.enum(['skip', 'create']).default('skip'),
+})
+
+clientsRouter.post(
+  '/import',
+  handler(async (req, res) => {
+    const { rows, onDuplicate } = importSchema.parse(req.body)
+    const fields = await customFieldDefs()
+
+    const existing = await prisma.client.findMany({ select: { phone: true } })
+    const seen = new Set(existing.map((c) => digitsOf(c.phone)).filter(Boolean))
+
+    const created: { index: number; id: string; fullName: string }[] = []
+    const skipped: { index: number; reason: string }[] = []
+    const failed: { index: number; message: string }[] = []
+
+    for (const row of rows) {
+      const parsed = clientSchema.safeParse(row.data)
+      if (!parsed.success) {
+        failed.push({
+          index: row.index,
+          message: parsed.error.issues.map((i) => i.message).join(', '),
+        })
+        continue
+      }
+
+      const digits = digitsOf(parsed.data.phone)
+      if (digits && seen.has(digits) && onDuplicate === 'skip') {
+        skipped.push({ index: row.index, reason: `הטלפון ${parsed.data.phone} כבר קיים במערכת` })
+        continue
+      }
+
+      try {
+        const { custom, ...rest } = parsed.data
+        const client = await prisma.client.create({
+          data: {
+            ...rest,
+            email: parsed.data.email || null,
+            ...(custom ? { custom: normaliseCustom(custom, fields) } : {}),
+          },
+        })
+        if (digits) seen.add(digits)
+        created.push({ index: row.index, id: client.id, fullName: client.fullName })
+      } catch (error) {
+        failed.push({
+          index: row.index,
+          message: error instanceof Error ? error.message : 'שמירה נכשלה',
+        })
+      }
+    }
+
+    if (created.length) {
+      await logActivity({
+        entityType: 'CLIENT',
+        entityId: created[0].id,
+        actorId: req.user!.id,
+        action: `ייבוא ${created.length} לקוחות מקובץ`,
+      })
+    }
+
+    res.json({ created, skipped, failed })
+  }),
+)
+
 clientsRouter.delete(
   '/:id',
   handler(async (req, res) => {

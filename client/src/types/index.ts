@@ -1,3 +1,14 @@
+/** A field the office added for itself, beyond what the system ships with. */
+export type CustomField = {
+  id: string
+  entityType: string
+  key: string
+  label: string
+  type: 'TEXT' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'SELECT'
+  options: string[]
+  position: number
+}
+
 export type Role = 'ADMIN' | 'MANAGER' | 'AGENT' | 'VIEWER'
 
 export type User = { id: string; name: string; email: string; role: Role }
@@ -33,6 +44,8 @@ export type Client = {
   availEmail: string | null
   availWhatsapp: string | null
   availPhone: string | null
+  /** Values for the office's own fields, keyed by CustomField.key. */
+  custom?: Record<string, string | number | boolean> | null
   createdAt: string
   updatedAt: string
   _count?: { files: number }

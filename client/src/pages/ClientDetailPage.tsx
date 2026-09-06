@@ -6,7 +6,7 @@ import { api } from '@/api/client'
 import { cn } from '@/lib/cn'
 import { date, initials, money, relative } from '@/lib/format'
 import { AVAILABILITY, CLIENT_PRIORITY, CONTACT_METHOD, FILE_STAGE, FILE_STATUS, labelOf, LEAD_STATUS } from '@/lib/labels'
-import type { Client } from '@/types'
+import type { Client, CustomField } from '@/types'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Badge, RAILS } from '@/components/ui/Badge'
 import { FactRow, Tabs, TabPanel } from '@/components/ui/Tabs'
@@ -40,6 +40,11 @@ export function ClientDetailPage() {
     queryFn: () => api.get<Client>(`/clients/${id}`),
   })
 
+  const { data: fields } = useQuery({
+    queryKey: ['custom-fields', 'CLIENT'],
+    queryFn: () => api.get<{ items: CustomField[] }>('/custom-fields?entity=CLIENT'),
+  })
+
   // The files go with the client, so the request says so out loud — the server
   // refuses a client who still has files unless it is asked in those terms.
   const removeClient = useMutation({
@@ -67,6 +72,7 @@ export function ClientDetailPage() {
 
   // Only the channels the client actually offered, each with when to use it.
   const files = client.files ?? []
+  const customFields = fields?.items ?? []
 
   const channels = [
     { value: client.availPhone, label: 'שיחות' },
@@ -241,6 +247,30 @@ export function ClientDetailPage() {
                   value={<span className="numeric" dir="ltr">{date(client.targetDate)}</span>}
                 />
               )}
+              {/* Fields the office added for itself, usually on an import.
+                  They sit with everything else: once a field exists it is a
+                  detail of the client, not an annex to one. */}
+              {customFields.map((field) => {
+                const value = client.custom?.[field.key]
+                if (value === undefined || value === null || value === '') return null
+                return (
+                  <FactRow
+                    key={field.id}
+                    label={field.label}
+                    value={
+                      field.type === 'BOOLEAN' ? (
+                        value ? 'כן' : 'לא'
+                      ) : field.type === 'DATE' ? (
+                        <span className="numeric" dir="ltr">{date(String(value))}</span>
+                      ) : field.type === 'NUMBER' ? (
+                        <span className="numeric" dir="ltr">{String(value)}</span>
+                      ) : (
+                        String(value)
+                      )
+                    }
+                  />
+                )
+              })}
               <FactRow
                 label="נוצר"
                 value={<span className="numeric" dir="ltr">{date(client.createdAt)}</span>}

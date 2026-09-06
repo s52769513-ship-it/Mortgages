@@ -11,6 +11,7 @@ import express from 'express'
 import cors from 'cors'
 import { authRouter } from './routes/auth.js'
 import { clientsRouter } from './routes/clients.js'
+import { customFieldsRouter } from './routes/customFields.js'
 import { filesRouter } from './routes/files.js'
 import { commentsRouter } from './routes/comments.js'
 import { activityRouter } from './routes/activity.js'
@@ -66,6 +67,7 @@ app.get('/api/health', async (_req, res) => {
 
 app.use('/api/auth', authRouter)
 app.use('/api/clients', clientsRouter)
+app.use('/api/custom-fields', customFieldsRouter)
 app.use('/api/files', filesRouter)
 app.use('/api/comments', commentsRouter)
 app.use('/api/activity', activityRouter)

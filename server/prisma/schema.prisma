@@ -47,6 +47,15 @@ enum Availability {
   LIMITED
 }
 
+/// What kind of value one of the office's own fields holds.
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+}
+
 /// The six pipeline steps the file stepper renders, in order.
 enum FileStage {
   INTAKE
@@ -229,6 +238,11 @@ model Client {
   availEmail    Availability?
   availWhatsapp Availability?
   availPhone    Availability?
+
+  /// Values for fields the office added itself, keyed by CustomField.key.
+  /// A field that was never filled in is simply absent from the object.
+  custom Json @default("{}")
+
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -590,6 +604,25 @@ model Notification {
   comment   Comment?  @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
   @@index([recipientId, readAt, createdAt])
+}
+
+/// A field the office added for itself, beyond what the system ships with.
+/// Usually born during an import, when a column in the spreadsheet has no
+/// home — the alternative is losing the column, which is worse.
+model CustomField {
+  id         String          @id @default(cuid())
+  entityType EntityType
+  /// Stable handle used inside the record's `custom` object.
+  key        String
+  label      String
+  type       CustomFieldType @default(TEXT)
+  /// The permitted values, for a SELECT. Empty for every other type.
+  options    String[]        @default([])
+  position   Int             @default(0)
+  createdAt  DateTime        @default(now())
+
+  @@unique([entityType, key])
+  @@index([entityType, position])
 }
 
 model ActivityLog {
