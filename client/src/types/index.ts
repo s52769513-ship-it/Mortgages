@@ -19,6 +19,20 @@ export type Client = {
   preferredContact: string
   doNotContact: boolean
   introNotes: string | null
+
+  /** Taken at intake, from what the client said. None of it is verified. */
+  partnerName: string | null
+  partnerPhone: string | null
+  declaredIncome: string | null
+  declaredAssets: string | null
+  declaredLiabilities: string | null
+  targetDate: string | null
+  agreedFee: string | null
+  priorities: string[]
+  prioritiesNote: string | null
+  availEmail: string | null
+  availWhatsapp: string | null
+  availPhone: string | null
   createdAt: string
   updatedAt: string
   _count?: { files: number }

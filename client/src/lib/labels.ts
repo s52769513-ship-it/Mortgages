@@ -127,6 +127,22 @@ export const COMMUNICATION_TYPE = {
   LETTER: { label: 'מכתב', tone: 'neutral' },
 } satisfies Dict
 
+/** What the client said matters most. More than one may be true. */
+export const CLIENT_PRIORITY = {
+  SERVICE: { label: 'שירות וליווי', tone: 'busy' },
+  RATES: { label: 'ריביות ותנאים', tone: 'busy' },
+  TIMELINE: { label: 'לוח זמנים', tone: 'busy' },
+  OTHER: { label: 'אחר', tone: 'neutral' },
+} satisfies Dict
+
+/** How reachable the client is on a channel. */
+export const AVAILABILITY = {
+  ANYTIME: { label: 'בכל שעה', tone: 'ok' },
+  WORK_HOURS: { label: 'שעות העבודה', tone: 'busy' },
+  EVENINGS: { label: 'בערב', tone: 'busy' },
+  LIMITED: { label: 'זמינות מוגבלת', tone: 'wait' },
+} satisfies Dict
+
 export const PROFESSIONAL_ROLE = {
   BANK_MANAGER: { label: 'מנהל בנק', tone: 'neutral' },
   BANKER: { label: 'בנקאי', tone: 'neutral' },

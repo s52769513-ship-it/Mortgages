@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AtSign, Check, FileText, Mic, Paperclip, Send, Square, Trash2, X } from 'lucide-react'
 import { api } from '@/api/client'
+import { useVoiceRecorder } from '@/lib/useVoiceRecorder'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { dateTime, initials, relative } from '@/lib/format'
@@ -140,14 +141,9 @@ export function InternalChat({
   const [mentions, setMentions] = useState<string[]>([])
   const [picking, setPicking] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
-  const [recording, setRecording] = useState(false)
-  const [elapsed, setElapsed] = useState(0)
 
   const endRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const recorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<Blob[]>([])
-  const startedAtRef = useRef(0)
 
   const key = ['comments', entityType, entityId]
   const path = `/comments/${entityType}/${entityId}`
@@ -162,13 +158,6 @@ export function InternalChat({
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'nearest' })
   }, [comments?.length])
-
-  // Ticks the label while recording so it is obvious something is happening.
-  useEffect(() => {
-    if (!recording) return
-    const timer = setInterval(() => setElapsed(Date.now() - startedAtRef.current), 200)
-    return () => clearInterval(timer)
-  }, [recording])
 
   const { data: employees } = useQuery({
     queryKey: ['employees'],
@@ -210,51 +199,21 @@ export function InternalChat({
     send.mutate({ body, file: pendingFile ?? undefined })
   }
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
-      chunksRef.current = []
-      startedAtRef.current = Date.now()
+  // The microphone itself lives in the hook; this only says what to do with
+  // what comes back.
+  const recorder = useVoiceRecorder(({ file, durationMs }) =>
+    send.mutate({ body: draft.trim(), file, kind: 'VOICE', durationMs }),
+  )
+  const { recording, elapsed } = recorder
 
-      recorder.ondataavailable = (e) => e.data.size && chunksRef.current.push(e.data)
-      recorder.onstop = () => {
-        const durationMs = Date.now() - startedAtRef.current
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
-        stream.getTracks().forEach((t) => t.stop())
-
-        // Too short to be anything but a misclick.
-        if (durationMs < 700) return
-
-        const extension = (recorder.mimeType || 'audio/webm').includes('mp4') ? 'm4a' : 'webm'
-        send.mutate({
-          body: draft.trim(),
-          file: new File([blob], `voice-${Date.now()}.${extension}`, { type: blob.type }),
-          kind: 'VOICE',
-          durationMs,
-        })
-      }
-
-      recorder.start()
-      recorderRef.current = recorder
-      setElapsed(0)
-      setRecording(true)
-    } catch {
+  useEffect(() => {
+    if (recorder.denied) {
       notify('אין גישה למיקרופון', {
         tone: 'error',
         detail: 'צריך לאשר לדפדפן להשתמש במיקרופון כדי להקליט.',
       })
     }
-  }
-
-  const stopRecording = (discard = false) => {
-    const recorder = recorderRef.current
-    if (!recorder) return
-    if (discard) startedAtRef.current = Date.now() // makes onstop treat it as too short
-    recorder.stop()
-    recorderRef.current = null
-    setRecording(false)
-  }
+  }, [recorder.denied, notify])
 
   const nameOf = (id: string) => employees?.find((e) => e.id === id)?.name ?? ''
 
@@ -403,10 +362,10 @@ export function InternalChat({
             <span className="numeric flex-1 text-[14px] font-medium text-urgent-ink" dir="ltr">
               {formatDuration(elapsed)}
             </span>
-            <Button size="sm" variant="secondary" onClick={() => stopRecording(true)}>
+            <Button size="sm" variant="secondary" onClick={recorder.cancel}>
               בטל
             </Button>
-            <Button size="sm" onClick={() => stopRecording()}>
+            <Button size="sm" onClick={recorder.stop}>
               <Square className="size-3.5 fill-current" />
               סיים ושלח
             </Button>
@@ -464,7 +423,7 @@ export function InternalChat({
 
               <button
                 type="button"
-                onClick={startRecording}
+                onClick={recorder.start}
                 aria-label="הקלטת הודעה קולית"
                 className="rounded-md p-2 text-ink-muted transition-colors duration-micro hover:bg-ink/[0.06]"
               >

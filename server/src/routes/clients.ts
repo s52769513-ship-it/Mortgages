@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { LeadStatus, ContactMethod } from '@prisma/client'
+import { Availability, ClientPriority, ContactMethod, LeadStatus } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { handler, HttpError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -25,6 +25,20 @@ const clientSchema = z.object({
   preferredContact: z.nativeEnum(ContactMethod).optional(),
   doNotContact: z.boolean().optional(),
   introNotes: z.string().nullish(),
+
+  // Taken at intake, from what the client says. Nothing here is evidence.
+  partnerName: z.string().nullish(),
+  partnerPhone: z.string().nullish(),
+  declaredIncome: z.coerce.number().nonnegative().nullish(),
+  declaredAssets: z.string().nullish(),
+  declaredLiabilities: z.string().nullish(),
+  targetDate: z.coerce.date().nullish(),
+  agreedFee: z.coerce.number().nonnegative().nullish(),
+  priorities: z.array(z.nativeEnum(ClientPriority)).optional(),
+  prioritiesNote: z.string().nullish(),
+  availEmail: z.nativeEnum(Availability).nullish(),
+  availWhatsapp: z.nativeEnum(Availability).nullish(),
+  availPhone: z.nativeEnum(Availability).nullish(),
 })
 
 clientsRouter.get(

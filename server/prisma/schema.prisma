@@ -31,6 +31,22 @@ enum ContactMethod {
   MEETING
 }
 
+/// What the client said matters most to them. More than one may apply.
+enum ClientPriority {
+  SERVICE
+  RATES
+  TIMELINE
+  OTHER
+}
+
+/// How reachable the client is on a given channel. Absent means "not this one".
+enum Availability {
+  ANYTIME
+  WORK_HOURS
+  EVENINGS
+  LIMITED
+}
+
 /// The six pipeline steps the file stepper renders, in order.
 enum FileStage {
   INTAKE
@@ -191,6 +207,28 @@ model Client {
   preferredContact ContactMethod @default(PHONE)
   doNotContact     Boolean       @default(false)
   introNotes       String?
+
+  /// A second borrower, when the mortgage is taken by a couple.
+  partnerName  String?
+  partnerPhone String?
+
+  /// Everything below is what the client told us at intake. None of it has
+  /// been checked against a document yet — that is what the file is for.
+  declaredIncome      Decimal? @db.Decimal(12, 2)
+  declaredAssets      String?
+  declaredLiabilities String?
+
+  /// Roughly when they need the money, and what was agreed for the work.
+  targetDate DateTime?
+  agreedFee  Decimal?  @db.Decimal(12, 2)
+
+  priorities     ClientPriority[]
+  prioritiesNote String?
+
+  /// Reachability per channel. Null means the client did not offer it.
+  availEmail    Availability?
+  availWhatsapp Availability?
+  availPhone    Availability?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 

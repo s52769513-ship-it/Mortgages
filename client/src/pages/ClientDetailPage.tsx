@@ -5,7 +5,7 @@ import { FolderOpen, Mail, Pencil, Phone, Plus } from 'lucide-react'
 import { api } from '@/api/client'
 import { cn } from '@/lib/cn'
 import { date, initials, money, relative } from '@/lib/format'
-import { CONTACT_METHOD, FILE_STAGE, FILE_STATUS, labelOf, LEAD_STATUS } from '@/lib/labels'
+import { AVAILABILITY, CLIENT_PRIORITY, CONTACT_METHOD, FILE_STAGE, FILE_STATUS, labelOf, LEAD_STATUS } from '@/lib/labels'
 import type { Client } from '@/types'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Badge, RAILS } from '@/components/ui/Badge'
@@ -43,6 +43,15 @@ export function ClientDetailPage() {
       </div>
     )
   }
+
+  // Only the channels the client actually offered, each with when to use it.
+  const channels = [
+    { value: client.availPhone, label: 'שיחות' },
+    { value: client.availWhatsapp, label: 'וואטסאפ' },
+    { value: client.availEmail, label: 'אימייל' },
+  ]
+    .filter((c) => c.value)
+    .map((c) => `${c.label}: ${labelOf(AVAILABILITY, c.value!).label}`)
 
   return (
     <div className="space-y-6">
@@ -136,11 +145,86 @@ export function ClientDetailPage() {
                 value={labelOf(CONTACT_METHOD, client.preferredContact).label}
               />
               <FactRow label="איש קשר מטעם המשרד" value={client.owner?.name} />
+              {client.partnerName && (
+                <FactRow
+                  label="לווה שני"
+                  value={
+                    <>
+                      {client.partnerName}
+                      {client.partnerPhone && (
+                        <span className="numeric text-ink-muted" dir="ltr">
+                          {' · '}
+                          {client.partnerPhone}
+                        </span>
+                      )}
+                    </>
+                  }
+                />
+              )}
+              {channels.length > 0 && (
+                <FactRow label="זמינות" value={channels.join(' · ')} />
+              )}
+              {client.priorities?.length > 0 && (
+                <FactRow
+                  label="חשוב ללקוח"
+                  value={
+                    client.priorities
+                      .map((p) => labelOf(CLIENT_PRIORITY, p).label)
+                      .join(' · ') + (client.prioritiesNote ? ` — ${client.prioritiesNote}` : '')
+                  }
+                />
+              )}
+              {client.agreedFee && (
+                <FactRow
+                  label="שכר טרחה שסוכם"
+                  value={<span className="numeric" dir="ltr">{money(client.agreedFee)}</span>}
+                />
+              )}
+              {client.targetDate && (
+                <FactRow
+                  label="תאריך ביצוע משוער"
+                  value={<span className="numeric" dir="ltr">{date(client.targetDate)}</span>}
+                />
+              )}
               <FactRow
                 label="נוצר"
                 value={<span className="numeric" dir="ltr">{date(client.createdAt)}</span>}
               />
             </dl>
+
+            {/* What the client told us before anything was checked. Kept apart
+                from the verified figures on the file, and labelled as such. */}
+            {(client.declaredIncome || client.declaredAssets || client.declaredLiabilities) && (
+              <div className="border-t border-hair px-6 py-5">
+                <p className="mb-3 text-[12px] font-semibold text-ink-muted">
+                  לפי הצהרת הלקוח · טרם אומת מול מסמכים
+                </p>
+                <dl className="space-y-2.5 text-[14px]">
+                  {client.declaredIncome && (
+                    <div className="flex gap-2">
+                      <dt className="text-ink-subtle">הכנסות חודשיות:</dt>
+                      <dd className="numeric font-medium" dir="ltr">
+                        {money(client.declaredIncome)}
+                      </dd>
+                    </div>
+                  )}
+                  {client.declaredAssets && (
+                    <div>
+                      <dt className="text-ink-subtle">נכסים:</dt>
+                      <dd className="whitespace-pre-wrap text-ink-muted">{client.declaredAssets}</dd>
+                    </div>
+                  )}
+                  {client.declaredLiabilities && (
+                    <div>
+                      <dt className="text-ink-subtle">התחייבויות:</dt>
+                      <dd className="whitespace-pre-wrap text-ink-muted">
+                        {client.declaredLiabilities}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            )}
             {client.introNotes && (
               <div className="border-t border-hair px-6 py-5">
                 <p className="mb-2 text-[12px] font-semibold text-ink-muted">
