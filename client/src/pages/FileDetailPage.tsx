@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -9,8 +9,10 @@ import {
   FileText,
   ListChecks,
   MessageSquare,
+  MoreHorizontal,
   Pencil,
   Plus,
+  Trash2,
   Unlock,
   Upload,
 } from 'lucide-react'
@@ -47,6 +49,8 @@ import { EditFileModal } from '@/components/EditFileModal'
 import { EditDocumentModal } from '@/components/EditDocumentModal'
 import { BankPackageModal } from '@/components/BankPackageModal'
 import { TaskOverlay } from '@/components/TaskOverlay'
+import { ConfirmDelete } from '@/components/ConfirmDelete'
+import { Menu, MenuItem } from '@/components/ui/Menu'
 
 const TAB_IDS = [
   'tasks',
@@ -61,6 +65,7 @@ const TAB_IDS = [
 
 export function FileDetailPage() {
   const { id = '' } = useParams()
+  const navigate = useNavigate()
   const { notify } = useToast()
   const queryClient = useQueryClient()
 
@@ -75,6 +80,7 @@ export function FileDetailPage() {
   const [editingApplication, setEditingApplication] = useState<BankApplication | null>(null)
   const [editingDocument, setEditingDocument] = useState<Doc | null>(null)
   const [packaging, setPackaging] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const {
     data: file,
@@ -111,6 +117,20 @@ export function FileDetailPage() {
     onError: (e: Error) => notify('הסרת החסימה נכשלה', { tone: 'error', detail: e.message }),
   })
 
+  // Nothing here is recoverable, so the screen leaves before anything can be
+  // clicked against a record that no longer exists.
+  const removeFile = useMutation({
+    mutationFn: () => api.delete(`/files/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['files'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      if (file?.clientId) queryClient.invalidateQueries({ queryKey: ['client', file.clientId] })
+      notify(`התיק ${file?.fileNumber ?? ''} נמחק`)
+      navigate(file?.clientId ? `/clients/${file.clientId}` : '/files')
+    },
+    onError: (e: Error) => notify('מחיקת התיק נכשלה', { tone: 'error', detail: e.message }),
+  })
+
   if (error) return <ErrorState message="לא הצלחנו לטעון את התיק." onRetry={() => refetch()} />
 
   if (isLoading || !file) {
@@ -130,6 +150,14 @@ export function FileDetailPage() {
 
   const visibleTasks = stageFilter ? tasks.filter((t) => t.stage === stageFilter) : tasks
   const visibleDocs = documents
+
+  // Named for the delete warning. Only what is actually there gets listed —
+  // a row of zeroes reads as reassurance, which is the opposite of the point.
+  const contents = [
+    tasks.length && `${tasks.length} משימות`,
+    documents.length && `${documents.length} מסמכים והקבצים שהועלו`,
+    bankApps.length && `${bankApps.length} בקשות לבנקים`,
+  ].filter(Boolean) as string[]
 
   return (
     <div className="space-y-6">
@@ -214,6 +242,40 @@ export function FileDetailPage() {
               <Building2 className="size-4" />
               בקשה לבנק
             </Button>
+
+            {/* Deleting sits behind a menu rather than beside the daily
+                actions: it is not part of the work, and a stray click on the
+                row of buttons should never be able to land on it. */}
+            <Menu
+              label={`פעולות נוספות לתיק ${file.fileNumber}`}
+              align="end"
+              width={210}
+              className="shrink-0"
+              trigger={({ open }) => (
+                <span
+                  className={cn(
+                    'flex size-9 items-center justify-center rounded-md border border-field text-ink-muted',
+                    'transition-colors duration-micro ease-standard hover:bg-ink/[0.04] hover:text-ink',
+                    open && 'bg-ink/[0.06] text-ink',
+                  )}
+                >
+                  <MoreHorizontal className="size-4" />
+                </span>
+              )}
+            >
+              {(close) => (
+                <MenuItem
+                  tone="danger"
+                  onClick={() => {
+                    close()
+                    setDeleting(true)
+                  }}
+                >
+                  <Trash2 className="size-4" />
+                  מחק תיק
+                </MenuItem>
+              )}
+            </Menu>
             </div>
           </div>
 
@@ -623,6 +685,23 @@ export function FileDetailPage() {
         open={Boolean(editingTask)}
         onClose={() => setEditingTask(null)}
       />
+
+      <ConfirmDelete
+        open={deleting}
+        onClose={() => setDeleting(false)}
+        onConfirm={() => removeFile.mutate()}
+        pending={removeFile.isPending}
+        title={`מחיקת תיק ${file.fileNumber}`}
+        phrase={file.fileNumber}
+        phraseLabel="מספר התיק"
+      >
+        <p>מחיקת התיק של {file.client?.fullName} תמחק איתו גם כל מה שתלוי בו:</p>
+        <p className="text-[13.5px] text-ink-muted">
+          {contents.length ? `${contents.join(' · ')} · ` : ''}
+          רישומי התקשורת, ההוצאות, אנשי המקצוע וכל שיחת הצוות על התיק.
+        </p>
+        <p>הלקוח עצמו יישאר במערכת.</p>
+      </ConfirmDelete>
     </div>
   )
 }

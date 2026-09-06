@@ -6,6 +6,7 @@ import { handler, HttpError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
 import { diff, logActivity } from '../lib/activity.js'
 import { parsePaging, parseSort } from '../lib/listing.js'
+import { deleteClientDeep } from '../services/deletion.js'
 
 const CLIENT_SORTS = ['fullName', 'leadStatus', 'createdAt', 'updatedAt'] as const
 
@@ -145,6 +146,13 @@ clientsRouter.patch(
   }),
 )
 
+/**
+ * Deleting a client takes their mortgage files with them, and everything
+ * hanging off those files. That is too much to do by accident, so it happens
+ * only when the caller says in the request that it knows: `?withFiles=1`.
+ * Without it a client who still has files is refused, and the refusal names
+ * how many, so the screen can say what it is asking about.
+ */
 clientsRouter.delete(
   '/:id',
   handler(async (req, res) => {
@@ -153,16 +161,24 @@ clientsRouter.delete(
       include: { _count: { select: { files: true } } },
     })
     if (!client) throw new HttpError(404, 'הלקוח לא נמצא')
-    if (client._count.files > 0) {
-      throw new HttpError(409, 'לא ניתן למחוק לקוח עם תיקי משכנתא פעילים')
+
+    const withFiles = req.query.withFiles === '1' || req.query.withFiles === 'true'
+    const fileCount = client._count.files
+    if (fileCount > 0 && !withFiles) {
+      throw new HttpError(
+        409,
+        `ללקוח ${fileCount} תיקי משכנתא. מחיקת הלקוח תמחק גם אותם, ויש לאשר זאת במפורש.`,
+      )
     }
 
-    await prisma.client.delete({ where: { id: req.params.id } })
+    await deleteClientDeep(req.params.id)
     await logActivity({
       entityType: 'CLIENT',
       entityId: req.params.id,
       actorId: req.user!.id,
-      action: 'מחיקת לקוח',
+      action: fileCount
+        ? `מחיקת לקוח ${client.fullName} ו-${fileCount} תיקים`
+        : `מחיקת לקוח ${client.fullName}`,
     })
     res.status(204).end()
   }),

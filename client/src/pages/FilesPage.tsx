@@ -10,7 +10,7 @@ import type { MortgageFile } from '@/types'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Modal } from '@/components/ui/Modal'
+import { ConfirmDelete } from '@/components/ConfirmDelete'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
 import { NewFileModal } from '@/components/NewFileModal'
@@ -536,53 +536,38 @@ export function FilesPage() {
               hint="לחיצה על שורה פותחת את דף התיק"
             />
 
-            {confirmingDelete && (
-              <Modal
-                open
-                onClose={() => setConfirmingDelete(false)}
-                title={`מחיקת ${selected.length} תיקים`}
-                description="הפעולה אינה הפיכה."
-                footer={
-                  <>
-                    <Button variant="secondary" onClick={() => setConfirmingDelete(false)}>
-                      בטל
-                    </Button>
-                    <Button
-                      variant="danger"
-                      loading={bulkDelete.isPending}
-                      loadingLabel="מוחק…"
-                      onClick={() => bulkDelete.mutate()}
-                    >
-                      מחק לצמיתות
-                    </Button>
-                  </>
-                }
-              >
-                <div className="space-y-4">
-                  <p className="text-[14.5px] leading-relaxed text-ink">
-                    מחיקת תיק מוחקת איתו גם את כל מה שתלוי בו — המשימות, המסמכים
-                    והקבצים שהועלו, הבקשות לבנקים, רישומי התקשורת וההוצאות.
-                  </p>
-                  <ul className="max-h-52 divide-y divide-row overflow-y-auto rounded-md border border-row">
-                    {data.items
-                      .filter((f) => selected.includes(f.id))
-                      .map((f) => (
-                        <li key={f.id} className="flex items-center gap-3 px-4 py-2.5 text-[14px]">
-                          <span className="numeric shrink-0 text-[12.5px] text-ink-subtle" dir="ltr">
-                            {f.fileNumber}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate">{f.client?.fullName}</span>
-                        </li>
-                      ))}
-                  </ul>
-                  {selected.some((id) => !data.items.some((f) => f.id === id)) && (
-                    <p className="text-[13px] text-ink-muted">
-                      חלק מהתיקים המסומנים נבחרו בעמודים אחרים ואינם ברשימה כאן.
-                    </p>
-                  )}
-                </div>
-              </Modal>
-            )}
+            <ConfirmDelete
+              open={confirmingDelete}
+              onClose={() => setConfirmingDelete(false)}
+              onConfirm={() => bulkDelete.mutate()}
+              pending={bulkDelete.isPending}
+              title={`מחיקת ${selected.length} תיקים`}
+              phrase={String(selected.length)}
+              phraseLabel="מספר התיקים שיימחקו"
+            >
+              <p>
+                מחיקת תיק מוחקת איתו גם את כל מה שתלוי בו — המשימות, המסמכים
+                והקבצים שהועלו, הבקשות לבנקים, רישומי התקשורת, ההוצאות וכל שיחת
+                הצוות על התיק. הלקוחות עצמם יישארו במערכת.
+              </p>
+              <ul className="max-h-40 space-y-1 overflow-y-auto text-[13.5px] text-ink-muted">
+                {data.items
+                  .filter((f) => selected.includes(f.id))
+                  .map((f) => (
+                    <li key={f.id} className="flex items-center gap-2">
+                      <span className="numeric shrink-0" dir="ltr">
+                        {f.fileNumber}
+                      </span>
+                      <span className="truncate">{f.client?.fullName}</span>
+                    </li>
+                  ))}
+              </ul>
+              {selected.some((id) => !data.items.some((f) => f.id === id)) && (
+                <p className="text-[13px] text-ink-muted">
+                  חלק מהתיקים המסומנים נבחרו בעמודים אחרים ואינם ברשימה כאן.
+                </p>
+              )}
+            </ConfirmDelete>
           </>
         )}
       </Card>

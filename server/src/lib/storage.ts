@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync } from 'node:fs'
+import { rm } from 'node:fs/promises'
 import path from 'node:path'
 import multer from 'multer'
 import { HttpError } from './http.js'
@@ -47,4 +48,23 @@ export function uploadErrorMessage(err: unknown) {
     return `הקובץ גדול מדי. המגבלה היא ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB.`
   }
   return null
+}
+
+/**
+ * Removes stored blobs after their records are gone. Deleting a file promises
+ * the papers go with it, and a volume that keeps every uploaded payslip of
+ * every deleted client is both a cost and a thing nobody agreed to store.
+ * A key that is already missing is not a problem worth failing a delete over.
+ */
+export async function removeStored(keys: (string | null | undefined)[]) {
+  for (const key of keys) {
+    if (!key) continue
+    try {
+      const full = path.resolve(UPLOAD_DIR, key)
+      if (full === UPLOAD_DIR || !full.startsWith(UPLOAD_DIR + path.sep)) continue
+      await rm(full, { force: true })
+    } catch (error) {
+      console.warn(`could not remove stored file ${key}:`, error)
+    }
+  }
 }

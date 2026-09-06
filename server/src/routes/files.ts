@@ -7,6 +7,7 @@ import { requireAuth } from '../middleware/auth.js'
 import { diff, logActivity } from '../lib/activity.js'
 import { parsePaging, parseSort } from '../lib/listing.js'
 import { buildBankPackage } from '../services/filePackage.js'
+import { deleteFileDeep } from '../services/deletion.js'
 
 const FILE_SORTS = [
   'fileNumber',
@@ -225,7 +226,7 @@ filesRouter.delete(
     const file = await prisma.mortgageFile.findUnique({ where: { id: req.params.id } })
     if (!file) throw new HttpError(404, 'התיק לא נמצא')
 
-    await prisma.mortgageFile.delete({ where: { id: req.params.id } })
+    await deleteFileDeep(req.params.id)
     await logActivity({
       entityType: 'MORTGAGE_FILE',
       entityId: req.params.id,

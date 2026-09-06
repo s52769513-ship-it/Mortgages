@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { FolderOpen, Mail, Pencil, Phone, Plus } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { FolderOpen, Mail, MoreHorizontal, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
 import { api } from '@/api/client'
 import { cn } from '@/lib/cn'
 import { date, initials, money, relative } from '@/lib/format'
@@ -16,12 +16,19 @@ import { ActivityFeed } from '@/components/ActivityFeed'
 import { EditClientModal } from '@/components/EditClientModal'
 import { NewFileModal } from '@/components/NewFileModal'
 import { Button } from '@/components/ui/Button'
+import { Menu, MenuItem } from '@/components/ui/Menu'
+import { useToast } from '@/components/ui/Toast'
+import { ConfirmDelete } from '@/components/ConfirmDelete'
 
 export function ClientDetailPage() {
   const { id = '' } = useParams()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { notify } = useToast()
   const [tab, setTab] = useState('chat')
   const [editing, setEditing] = useState(false)
   const [openingFile, setOpeningFile] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const {
     data: client,
@@ -31,6 +38,20 @@ export function ClientDetailPage() {
   } = useQuery({
     queryKey: ['client', id],
     queryFn: () => api.get<Client>(`/clients/${id}`),
+  })
+
+  // The files go with the client, so the request says so out loud — the server
+  // refuses a client who still has files unless it is asked in those terms.
+  const removeClient = useMutation({
+    mutationFn: () => api.delete(`/clients/${id}?withFiles=1`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      queryClient.invalidateQueries({ queryKey: ['files'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      notify('הלקוח נמחק')
+      navigate('/clients')
+    },
+    onError: (e: Error) => notify('מחיקת הלקוח נכשלה', { tone: 'error', detail: e.message }),
   })
 
   if (error) return <ErrorState message="לא הצלחנו לטעון את הלקוח." onRetry={() => refetch()} />
@@ -45,6 +66,8 @@ export function ClientDetailPage() {
   }
 
   // Only the channels the client actually offered, each with when to use it.
+  const files = client.files ?? []
+
   const channels = [
     { value: client.availPhone, label: 'שיחות' },
     { value: client.availWhatsapp, label: 'וואטסאפ' },
@@ -119,6 +142,38 @@ export function ClientDetailPage() {
               <Plus className="size-4" />
               פתח תיק
             </Button>
+
+            {/* Out of the way of the everyday actions on purpose. */}
+            <Menu
+              label={`פעולות נוספות ללקוח ${client.fullName}`}
+              align="end"
+              width={210}
+              className="shrink-0"
+              trigger={({ open }) => (
+                <span
+                  className={cn(
+                    'flex size-11 items-center justify-center rounded-md border border-field text-ink-muted md:size-9',
+                    'transition-colors duration-micro ease-standard hover:bg-ink/[0.04] hover:text-ink',
+                    open && 'bg-ink/[0.06] text-ink',
+                  )}
+                >
+                  <MoreHorizontal className="size-4" />
+                </span>
+              )}
+            >
+              {(close) => (
+                <MenuItem
+                  tone="danger"
+                  onClick={() => {
+                    close()
+                    setDeleting(true)
+                  }}
+                >
+                  <Trash2 className="size-4" />
+                  מחק לקוח
+                </MenuItem>
+              )}
+            </Menu>
           </div>
         </div>
       </div>
@@ -326,6 +381,42 @@ export function ClientDetailPage() {
           onClose={() => setOpeningFile(false)}
         />
       )}
+
+      <ConfirmDelete
+        open={deleting}
+        onClose={() => setDeleting(false)}
+        onConfirm={() => removeClient.mutate()}
+        pending={removeClient.isPending}
+        title={`מחיקת הלקוח ${client.fullName}`}
+        phrase={client.fullName}
+        phraseLabel="שם הלקוח המלא"
+      >
+        {files.length > 0 ? (
+          <>
+            <p>
+              ללקוח {files.length === 1 ? 'תיק משכנתא אחד' : `${files.length} תיקי משכנתא`}.
+              מחיקת הלקוח תמחק גם אותם, ואיתם המשימות, המסמכים והקבצים שהועלו,
+              הבקשות לבנקים, רישומי התקשורת, ההוצאות וכל שיחת הצוות.
+            </p>
+            <ul className="space-y-1 text-[13.5px] text-ink-muted">
+              {files.map((f) => (
+                <li key={f.id} className="flex items-center gap-2">
+                  <span className="numeric shrink-0" dir="ltr">
+                    {f.fileNumber}
+                  </span>
+                  <span className="truncate">{labelOf(FILE_STAGE, f.stage).label}</span>
+                </li>
+              ))}
+            </ul>
+            <p>אם המטרה היא רק לסגור טיפול — עדיף לשנות את סטטוס הליד.</p>
+          </>
+        ) : (
+          <p>
+            הלקוח יימחק על כל פרטיו, כולל שיחת הצוות עליו וההקלטות שצורפו לה.
+            אין לו תיקי משכנתא, כך שלא יימחק דבר נוסף.
+          </p>
+        )}
+      </ConfirmDelete>
     </div>
   )
 }
