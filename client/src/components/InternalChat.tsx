@@ -119,6 +119,22 @@ function MentionPicker({
   )
 }
 
+/** Each cause needs a different next step, so each gets its own sentence. */
+const RECORDER_MESSAGE: Record<string, { title: string; detail: string }> = {
+  unsupported: {
+    title: 'הדפדפן אינו תומך בהקלטה',
+    detail: 'נסה בדפדפן אחר, או ודא שהכתובת מתחילה ב-https.',
+  },
+  denied: {
+    title: 'אין גישה למיקרופון',
+    detail: 'צריך לאשר לדפדפן להשתמש במיקרופון כדי להקליט.',
+  },
+  failed: {
+    title: 'ההקלטה לא התחילה',
+    detail: 'ייתכן שהמיקרופון תפוס בתוכנה אחרת. סגור אותה ונסה שוב.',
+  },
+}
+
 /**
  * The team's thread on one record. Own messages sit on the opposite edge from
  * everyone else's, and the thread polls so a colleague's message arrives
@@ -206,14 +222,13 @@ export function InternalChat({
   )
   const { recording, elapsed } = recorder
 
+  const { problem: recorderProblem, clearProblem } = recorder
   useEffect(() => {
-    if (recorder.denied) {
-      notify('אין גישה למיקרופון', {
-        tone: 'error',
-        detail: 'צריך לאשר לדפדפן להשתמש במיקרופון כדי להקליט.',
-      })
-    }
-  }, [recorder.denied, notify])
+    if (!recorderProblem) return
+    const message = RECORDER_MESSAGE[recorderProblem]
+    notify(message.title, { tone: 'error', detail: message.detail })
+    clearProblem()
+  }, [recorderProblem, clearProblem, notify])
 
   const nameOf = (id: string) => employees?.find((e) => e.id === id)?.name ?? ''
 

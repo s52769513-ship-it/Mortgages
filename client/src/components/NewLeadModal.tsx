@@ -58,6 +58,22 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
   )
 }
 
+/** Each cause needs a different next step, so each gets its own sentence. */
+const RECORDER_MESSAGE: Record<string, { title: string; detail: string }> = {
+  unsupported: {
+    title: 'הדפדפן אינו תומך בהקלטה',
+    detail: 'נסה בדפדפן אחר, או ודא שהכתובת מתחילה ב-https.',
+  },
+  denied: {
+    title: 'אין גישה למיקרופון',
+    detail: 'צריך לאשר לדפדפן להשתמש במיקרופון כדי להקליט.',
+  },
+  failed: {
+    title: 'ההקלטה לא התחילה',
+    detail: 'ייתכן שהמיקרופון תפוס בתוכנה אחרת. סגור אותה ונסה שוב.',
+  },
+}
+
 /**
  * The first conversation with a lead, on one screen.
  *
@@ -78,14 +94,13 @@ export function NewLeadModal({ open, onClose }: { open: boolean; onClose: () => 
 
   const recorder = useVoiceRecorder(setStory)
 
+  const { problem: recorderProblem, clearProblem } = recorder
   useEffect(() => {
-    if (recorder.denied) {
-      notify('אין גישה למיקרופון', {
-        tone: 'error',
-        detail: 'צריך לאשר לדפדפן להשתמש במיקרופון כדי להקליט.',
-      })
-    }
-  }, [recorder.denied, notify])
+    if (!recorderProblem) return
+    const message = RECORDER_MESSAGE[recorderProblem]
+    notify(message.title, { tone: 'error', detail: message.detail })
+    clearProblem()
+  }, [recorderProblem, clearProblem, notify])
 
   const togglePriority = (value: string) =>
     set(

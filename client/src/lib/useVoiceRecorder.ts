@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
  * Records a voice note from the microphone.
@@ -14,10 +14,23 @@ const TOO_SHORT_MS = 700
 
 export type Recording = { file: File; durationMs: number }
 
+/** Why a recording could not start — each needs a different thing said. */
+export type RecorderProblem = 'unsupported' | 'denied' | 'failed'
+
+/**
+ * Recording needs a secure context and MediaRecorder. Older browsers, and any
+ * page served over plain http, have neither — worth knowing before offering
+ * the button rather than after the click fails.
+ */
+export const recordingSupported = () =>
+  typeof window !== 'undefined' &&
+  typeof MediaRecorder !== 'undefined' &&
+  Boolean(navigator.mediaDevices?.getUserMedia)
+
 export function useVoiceRecorder(onDone: (recording: Recording) => void) {
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
-  const [denied, setDenied] = useState(false)
+  const [problem, setProblem] = useState<RecorderProblem | null>(null)
 
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -43,6 +56,11 @@ export function useVoiceRecorder(onDone: (recording: Recording) => void) {
   )
 
   const start = async () => {
+    if (!recordingSupported()) {
+      setProblem('unsupported')
+      return
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const recorder = new MediaRecorder(stream)
@@ -69,12 +87,19 @@ export function useVoiceRecorder(onDone: (recording: Recording) => void) {
       recorder.start()
       recorderRef.current = recorder
       setElapsed(0)
-      setDenied(false)
+      setProblem(null)
       setRecording(true)
-    } catch {
-      setDenied(true)
+    } catch (error) {
+      // A refusal is the common case, but a device already in use by another
+      // program fails here too, and telling someone to grant permission they
+      // already granted sends them the wrong way.
+      const name = error instanceof DOMException ? error.name : ''
+      setProblem(name === 'NotAllowedError' || name === 'SecurityError' ? 'denied' : 'failed')
     }
   }
+
+  // Stable, so the effect that reports a problem does not re-run every render.
+  const clearProblem = useCallback(() => setProblem(null), [])
 
   const finish = (discard = false) => {
     discardRef.current = discard
@@ -88,8 +113,11 @@ export function useVoiceRecorder(onDone: (recording: Recording) => void) {
     recording,
     /** Milliseconds since the recording started. */
     elapsed,
-    /** True when the browser refused the microphone. */
-    denied,
+    /** Set when a recording could not start; null while all is well. */
+    problem,
+    /** Clears the last problem, so the message is shown once. */
+    clearProblem,
+    supported: recordingSupported(),
     start,
     stop: () => finish(false),
     cancel: () => finish(true),
