@@ -1,7 +1,5 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 
 /**
@@ -13,12 +11,32 @@ import react from '@vitejs/plugin-react'
  */
 const BUILD_VERSION = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 12) || String(Date.now())
 
-const publicDir = fileURLToPath(new URL('./public', import.meta.url))
-if (!existsSync(publicDir)) mkdirSync(publicDir, { recursive: true })
-writeFileSync(path.join(publicDir, 'version.json'), JSON.stringify({ version: BUILD_VERSION }))
+/**
+ * Puts version.json where the running app can fetch it, without writing
+ * into the source tree to get it there. A build environment is not
+ * guaranteed to let a config file write back into the checkout it was
+ * loaded from — emitting into the bundle is what Vite's own asset pipeline
+ * exists for, and a dev-server route covers the one case that pipeline
+ * doesn't run at all.
+ */
+function versionFile(): Plugin {
+  const body = JSON.stringify({ version: BUILD_VERSION })
+  return {
+    name: 'version-file',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'version.json', source: body })
+    },
+    configureServer(server) {
+      server.middlewares.use('/version.json', (_req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        res.end(body)
+      })
+    },
+  }
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), versionFile()],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
