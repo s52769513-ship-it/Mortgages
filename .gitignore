@@ -8,3 +8,4 @@ build/
 uploads/
 *.tsbuildinfo
 .impeccable/
+client/public/version.json

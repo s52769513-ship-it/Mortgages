@@ -6,6 +6,7 @@ import { App } from './App'
 import { AuthProvider } from '@/lib/auth'
 import { ToastProvider } from '@/components/ui/Toast'
 import { watchForLiveUpdates } from '@/lib/liveUpdateBanner'
+import { watchForNewVersion } from '@/lib/versionCheck'
 import './styles/index.css'
 
 const queryClient = new QueryClient({
@@ -14,9 +15,10 @@ const queryClient = new QueryClient({
   },
 })
 
-// One subscription for the whole app; the client itself is a singleton
-// created once at module load, so this never doubles up.
+// One subscription each for the whole app; the client and the module both
+// load exactly once, so neither of these ever doubles up.
 watchForLiveUpdates(queryClient)
+watchForNewVersion()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

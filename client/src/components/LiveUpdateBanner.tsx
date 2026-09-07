@@ -1,21 +1,16 @@
-import { useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, X } from 'lucide-react'
-import { dismissLiveUpdateBanner, useLiveUpdateBannerVisible } from '@/lib/liveUpdateBanner'
+import { dismissLiveUpdateBanner, useLiveUpdateBanner } from '@/lib/liveUpdateBanner'
 
 /**
  * The small tab itself — bottom of the screen, out of the way of everything
- * else, gone the moment it has been dealt with one way or another.
+ * else, gone the moment it has been dealt with one way or another. What it
+ * says and what its button does come from whichever announcement is active;
+ * see liveUpdateBanner.ts.
  */
 export function LiveUpdateBanner() {
-  const visible = useLiveUpdateBannerVisible()
-  const queryClient = useQueryClient()
+  const banner = useLiveUpdateBanner()
 
-  if (!visible) return null
-
-  const refresh = () => {
-    queryClient.invalidateQueries()
-    dismissLiveUpdateBanner()
-  }
+  if (!banner) return null
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-5 z-50 flex justify-center px-4">
@@ -26,14 +21,14 @@ export function LiveUpdateBanner() {
           'text-[13.5px] text-white shadow-modal animate-overlay-in',
         ].join(' ')}
       >
-        <span>יש עדכון חדש</span>
+        <span>{banner.message}</span>
         <button
           type="button"
-          onClick={refresh}
+          onClick={banner.onAction}
           className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 font-medium transition-colors duration-micro ease-standard hover:bg-white/25"
         >
           <RefreshCw className="size-3.5" />
-          לחץ כאן לריענון
+          {banner.actionLabel}
         </button>
         <button
           type="button"
