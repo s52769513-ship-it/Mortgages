@@ -3,7 +3,16 @@ import { Link } from 'react-router-dom'
 import { GripVertical, MoveRight } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { date, money } from '@/lib/format'
-import { FILE_STAGE, FILE_STATUS, labelOf, STAGE_ORDER, URGENCY, type Stage } from '@/lib/labels'
+import {
+  FILE_STAGE,
+  FILE_STATUS,
+  labelOf,
+  STAGE_ORDER,
+  URGENCY,
+  type Stage,
+  type Tone,
+} from '@/lib/labels'
+import { useFileStatusTone } from '@/lib/fileStatusColor'
 import type { MortgageFile } from '@/types'
 import { Badge, RAILS } from '@/components/ui/Badge'
 import { Menu, MenuItem, MenuLabel } from '@/components/ui/Menu'
@@ -18,10 +27,12 @@ function FileCard({
   file,
   onMove,
   moving,
+  statusTone,
 }: {
   file: MortgageFile
   onMove: (id: string, stage: Stage) => void
   moving: boolean
+  statusTone: Tone
 }) {
   const status = labelOf(FILE_STATUS, file.status)
   const urgency = labelOf(URGENCY, file.urgency)
@@ -35,29 +46,29 @@ function FileCard({
         e.dataTransfer.effectAllowed = 'move'
       }}
       className={cn(
-        'group relative rounded-lg border border-hair border-s-4 bg-surface p-3.5',
+        'group relative rounded-lg border border-hair border-s-4 bg-surface p-2.5',
         'shadow-surface transition-shadow duration-micro ease-standard hover:shadow-raised',
         moving ? 'cursor-progress opacity-55' : 'cursor-grab active:cursor-grabbing',
-        RAILS[status.tone],
+        RAILS[statusTone],
       )}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-2">
         <GripVertical
-          className="mt-0.5 size-4 shrink-0 text-ink-subtle opacity-0 transition-opacity duration-micro group-hover:opacity-100"
+          className="size-4 shrink-0 text-ink-subtle opacity-0 transition-opacity duration-micro group-hover:opacity-100"
           aria-hidden
         />
-        <div className="min-w-0 flex-1">
-          <Link
-            to={`/files/${file.id}`}
-            draggable={false}
-            className="block truncate text-[14.5px] font-medium text-ink hover:text-steel-700"
-          >
-            {file.client?.fullName}
-          </Link>
-          <span className="numeric mt-0.5 block truncate text-[12.5px] text-ink-subtle" dir="ltr">
-            {file.fileNumber}
-          </span>
-        </div>
+        {/* The client's name and the file number both open the same record —
+            the board is a glance at where work sits, not a lookup by who or
+            which file; the property address (or the file number, on the
+            files still too new to have one) is what the office actually
+            recognises a card by here. */}
+        <Link
+          to={`/files/${file.id}`}
+          draggable={false}
+          className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink hover:text-steel-700"
+        >
+          {file.propertyAddress || file.fileNumber}
+        </Link>
 
         <Menu
           label={`העברת התיק ${file.fileNumber} לשלב אחר`}
@@ -96,20 +107,18 @@ function FileCard({
         </Menu>
       </div>
 
-      {file.propertyAddress && (
-        <p className="mt-2 truncate text-[13px] text-ink-muted">{file.propertyAddress}</p>
-      )}
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Badge tone={status.tone}>{status.label}</Badge>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <Badge tone={statusTone} className="px-2 py-0.5 text-[11px]">
+          {status.label}
+        </Badge>
         {(file.urgency === 'HIGH' || file.urgency === 'CRITICAL') && (
-          <Badge tone={urgency.tone} dot>
+          <Badge tone={urgency.tone} dot className="px-2 py-0.5 text-[11px]">
             {urgency.label}
           </Badge>
         )}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3 border-t border-hair pt-2.5 text-[12.5px]">
+      <div className="mt-2 flex items-center justify-between gap-3 text-[12px]">
         <span className="numeric text-ink-muted" dir="ltr">
           {money(file.requestedAmount)}
         </span>
@@ -136,6 +145,7 @@ export function PipelineBoard({
   movingId?: string | null
 }) {
   const [over, setOver] = useState<Stage | null>(null)
+  const statusTone = useFileStatusTone()
 
   return (
     <div className="flex gap-4 overflow-x-auto px-5 py-5 lg:px-7">
@@ -181,7 +191,7 @@ export function PipelineBoard({
               </p>
             )}
 
-            <div className="flex min-h-[120px] flex-1 flex-col gap-2.5 p-2.5">
+            <div className="flex min-h-[120px] flex-1 flex-col gap-2 p-2">
               {column.length === 0 ? (
                 <p className="m-auto px-2 text-center text-[13px] text-ink-faint">אין תיקים בשלב</p>
               ) : (
@@ -191,6 +201,7 @@ export function PipelineBoard({
                     file={file}
                     onMove={onMove}
                     moving={movingId === file.id}
+                    statusTone={statusTone(file.status)}
                   />
                 ))
               )}

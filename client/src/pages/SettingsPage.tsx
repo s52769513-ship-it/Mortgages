@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Lock, Plus, Settings as SettingsIcon, X } from 'lucide-react'
+import { Check, Lock, Plus, Settings as SettingsIcon, X } from 'lucide-react'
 import { api } from '@/api/client'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
+import { FILE_STATUS, type Tone } from '@/lib/labels'
+import { TONE_SWATCHES } from '@/lib/fileStatusColor'
 import { Card, CardHeader } from '@/components/ui/Card'
+import { Badge, DOTS } from '@/components/ui/Badge'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
 
@@ -39,6 +42,7 @@ export function SettingsPage() {
 
       <PercentListCard isAdmin={isAdmin} isLoading={isLoading} values={data?.ltvPresets} />
       <TextListCard isAdmin={isAdmin} isLoading={isLoading} values={data?.dealTypes} />
+      <StatusColorsCard isAdmin={isAdmin} isLoading={isLoading} values={data?.fileStatusColors} />
 
       {!isAdmin && (
         <EmptyState
@@ -286,6 +290,104 @@ function TextListCard({
             <AddButton onClick={add} disabled={!draft.trim() || save.isPending} />
           </div>
         </div>
+      )}
+    </Card>
+  )
+}
+
+/** The five file statuses, in the order the design system defines them. */
+const STATUS_KEYS = Object.keys(FILE_STATUS) as (keyof typeof FILE_STATUS)[]
+
+/**
+ * Which of the five state colours each file status renders in, everywhere a
+ * file's status is shown — the table, the pipeline board, the file's own
+ * page. Not a free choice of colour: the four-tone system stays exactly as
+ * restrained as it always was, this only lets the office decide which
+ * meaning gets which of the five.
+ */
+function StatusColorsCard({
+  isAdmin,
+  isLoading,
+  values,
+}: {
+  isAdmin: boolean
+  isLoading: boolean
+  values: unknown
+}) {
+  const { notify } = useToast()
+  const queryClient = useQueryClient()
+  const raw = values && typeof values === 'object' ? (values as Record<string, Tone>) : {}
+  // Every status needs a tone to render at all, so a status the settings
+  // object has not caught up with yet falls back to its built-in colour
+  // rather than disappearing from the picker.
+  const colors = Object.fromEntries(
+    STATUS_KEYS.map((key) => [key, raw[key] ?? FILE_STATUS[key].tone]),
+  ) as Record<string, Tone>
+
+  const save = useMutation({
+    mutationFn: (next: Record<string, Tone>) =>
+      api.patch<{ value: Record<string, Tone> }>('/settings/fileStatusColors', { value: next }),
+    onSuccess: (result) => {
+      queryClient.setQueryData(['settings'], (prev: Record<string, unknown> | undefined) => ({
+        ...(prev ?? {}),
+        fileStatusColors: result.value,
+      }))
+    },
+    onError: (e: Error) => notify('העדכון נכשל', { tone: 'error', detail: e.message }),
+  })
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader
+        title="צבעי סטטוס תיק"
+        subtitle="הצבע שבו כל סטטוס מוצג — בטבלת התיקים, בצנרת ובדף התיק עצמו."
+      />
+      {isLoading ? (
+        <div className="space-y-3 p-6">
+          <Skeleton className="h-8 w-1/2" />
+          <Skeleton className="h-8 w-1/2" />
+        </div>
+      ) : !isAdmin ? (
+        <div className="flex flex-wrap gap-2 px-6 py-5">
+          {STATUS_KEYS.map((key) => (
+            <Badge key={key} tone={colors[key]} dot>
+              {FILE_STATUS[key].label}
+            </Badge>
+          ))}
+        </div>
+      ) : (
+        <ul className="divide-y divide-row px-6">
+          {STATUS_KEYS.map((key) => (
+            <li key={key} className="flex flex-wrap items-center justify-between gap-3 py-4">
+              <Badge tone={colors[key]} dot>
+                {FILE_STATUS[key].label}
+              </Badge>
+              <div role="group" aria-label={`צבע לסטטוס ${FILE_STATUS[key].label}`} className="flex gap-1.5">
+                {TONE_SWATCHES.map((swatch) => {
+                  const selected = colors[key] === swatch.value
+                  return (
+                    <button
+                      key={swatch.value}
+                      type="button"
+                      aria-label={swatch.label}
+                      aria-pressed={selected}
+                      disabled={save.isPending}
+                      onClick={() => save.mutate({ ...colors, [key]: swatch.value })}
+                      className={cn(
+                        'flex size-7 items-center justify-center rounded-full transition-transform duration-micro ease-standard',
+                        'disabled:pointer-events-none disabled:opacity-50',
+                        selected ? 'ring-2 ring-steel-600 ring-offset-2' : 'hover:scale-110',
+                        DOTS[swatch.value],
+                      )}
+                    >
+                      {selected && <Check className="size-3.5 text-white" strokeWidth={3} />}
+                    </button>
+                  )
+                })}
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
     </Card>
   )

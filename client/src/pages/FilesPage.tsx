@@ -8,6 +8,7 @@ import { cn } from '@/lib/cn'
 import { date, money, relative } from '@/lib/format'
 import { FILE_STAGE, FILE_STATUS, labelOf, options, URGENCY, type Stage } from '@/lib/labels'
 import type { MortgageFile } from '@/types'
+import { useFileStatusTone } from '@/lib/fileStatusColor'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDelete } from '@/components/ConfirmDelete'
@@ -52,6 +53,7 @@ export function FilesPage() {
 
   const queryClient = useQueryClient()
   const { notify } = useToast()
+  const statusTone = useFileStatusTone()
 
   const stage = params.get('stage') ?? ''
   const status = params.get('status') ?? ''
@@ -519,7 +521,7 @@ export function FilesPage() {
             <DataTable
               columns={columns}
               rows={data.items}
-              toneOf={(f) => labelOf(FILE_STATUS, f.status).tone}
+              toneOf={(f) => statusTone(f.status)}
               linkTo={(f) => `/files/${f.id}`}
               minWidth={1160}
               sort={listing.sort}

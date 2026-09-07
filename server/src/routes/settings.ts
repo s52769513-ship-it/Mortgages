@@ -19,6 +19,9 @@ import { requireAuth, requireRole } from '../middleware/auth.js'
 export const settingsRouter = Router()
 settingsRouter.use(requireAuth)
 
+/** The five state colours the whole design system is built on — see client/src/lib/labels.ts. */
+const TONES = ['neutral', 'busy', 'ok', 'wait', 'urgent'] as const
+
 const SCHEMAS: Record<string, z.ZodTypeAny> = {
   ltvPresets: z
     .array(z.number().int().min(1, 'אחוז חייב להיות בין 1 ל-100').max(100))
@@ -35,11 +38,31 @@ const SCHEMAS: Record<string, z.ZodTypeAny> = {
     // Text has no natural sort order the way a percentage does — the order
     // the office built the list in is kept, first occurrence wins.
     .transform((values) => Array.from(new Set(values.map((v) => v.trim())))),
+
+  // Which of the five state colours each file status renders in — the office's
+  // own remap of a fixed palette, not a free choice of colour. The whole point
+  // of the four-tone system (see labels.ts) is that decorative colour never
+  // creeps in; this lets an office decide which meaning gets which tone
+  // without opening that door.
+  fileStatusColors: z.object({
+    ACTIVE: z.enum(TONES),
+    BLOCKED: z.enum(TONES),
+    ON_HOLD: z.enum(TONES),
+    COMPLETED: z.enum(TONES),
+    CANCELLED: z.enum(TONES),
+  }),
 }
 
 const DEFAULTS: Record<string, unknown> = {
   ltvPresets: [50, 60, 70, 75, 80],
   dealTypes: ['רכישת דירה', 'מחזור משכנתא', 'משכנתא לכל מטרה', 'בנייה עצמית', 'גישור'],
+  fileStatusColors: {
+    ACTIVE: 'busy',
+    BLOCKED: 'urgent',
+    ON_HOLD: 'wait',
+    COMPLETED: 'ok',
+    CANCELLED: 'neutral',
+  },
 }
 
 settingsRouter.get(

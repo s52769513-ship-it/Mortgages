@@ -30,6 +30,7 @@ import {
   type Stage,
 } from '@/lib/labels'
 import type { BankApplication, Doc, MortgageFile, Task } from '@/types'
+import { useFileStatusTone } from '@/lib/fileStatusColor'
 import { Badge, RAILS } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -93,6 +94,8 @@ export function FileDetailPage() {
     queryFn: () => api.get<MortgageFile>(`/files/${id}`),
     ...livePoll,
   })
+
+  const statusTone = useFileStatusTone()
 
   // Clicking a step filters, which is cheap and reversible. Actually moving the
   // file is a real change that lands in the log, so it takes a second,
@@ -179,7 +182,7 @@ export function FileDetailPage() {
               >
                 {file.client?.fullName}
               </Link>
-              <Badge tone={labelOf(FILE_STATUS, file.status).tone}>
+              <Badge tone={statusTone(file.status)}>
                 {labelOf(FILE_STATUS, file.status).label}
               </Badge>
               <Badge tone={labelOf(FILE_STAGE, file.stage).tone}>

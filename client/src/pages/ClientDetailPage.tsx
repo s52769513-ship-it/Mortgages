@@ -8,6 +8,7 @@ import { cn } from '@/lib/cn'
 import { date, initials, money, relative } from '@/lib/format'
 import { AVAILABILITY, CLIENT_PRIORITY, CONTACT_METHOD, FILE_STAGE, FILE_STATUS, labelOf, LEAD_STATUS, type Stage } from '@/lib/labels'
 import type { Client, CustomField } from '@/types'
+import { useFileStatusTone } from '@/lib/fileStatusColor'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Badge, RAILS } from '@/components/ui/Badge'
 import { Tabs, TabPanel } from '@/components/ui/Tabs'
@@ -31,6 +32,7 @@ export function ClientDetailPage() {
   const [editing, setEditing] = useState(false)
   const [openingFile, setOpeningFile] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const statusTone = useFileStatusTone()
 
   const {
     data: client,
@@ -372,7 +374,7 @@ export function ClientDetailPage() {
                         'flex items-center gap-4 border-s-4 px-6 py-4',
                         'transition-colors duration-micro ease-standard hover:bg-ink/[0.04]',
                         i < client.files!.length - 1 && 'border-b border-b-row',
-                        RAILS[labelOf(FILE_STATUS, file.status).tone],
+                        RAILS[statusTone(file.status)],
                       )}
                     >
                       <span

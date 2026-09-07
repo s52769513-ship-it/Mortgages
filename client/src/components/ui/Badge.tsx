@@ -14,7 +14,8 @@ const TONES: Record<Tone, string> = {
   urgent: 'bg-urgent-tint text-urgent-ink rounded-full',
 }
 
-const DOTS: Record<Tone, string> = {
+/** Shared with anything that draws its own coloured dot next to a Tone's name. */
+export const DOTS: Record<Tone, string> = {
   neutral: 'bg-rail',
   busy: 'bg-busy',
   ok: 'bg-ok',

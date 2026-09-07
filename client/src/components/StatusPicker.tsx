@@ -1,7 +1,8 @@
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import { FILE_STATUS, labelOf, type Tone } from '@/lib/labels'
-import { Badge } from '@/components/ui/Badge'
+import { FILE_STATUS, labelOf } from '@/lib/labels'
+import { useFileStatusTone } from '@/lib/fileStatusColor'
+import { Badge, DOTS as DOT } from '@/components/ui/Badge'
 import { Menu, MenuItem, MenuLabel } from '@/components/ui/Menu'
 
 const STATUS_ORDER = ['ACTIVE', 'ON_HOLD', 'BLOCKED', 'COMPLETED', 'CANCELLED'] as const
@@ -27,6 +28,7 @@ export function StatusPicker({
   moving?: boolean
 }) {
   const current = labelOf(FILE_STATUS, status)
+  const toneOf = useFileStatusTone()
 
   return (
     <span onClick={(e) => { e.preventDefault(); e.stopPropagation() }}>
@@ -41,7 +43,7 @@ export function StatusPicker({
               moving && 'pointer-events-none opacity-55',
             )}
           >
-            <Badge tone={current.tone} dot>
+            <Badge tone={toneOf(status)} dot>
               {current.label}
             </Badge>
             <ChevronDown
@@ -66,7 +68,7 @@ export function StatusPicker({
                   }}
                 >
                   <span
-                    className={cn('size-2 shrink-0 rounded-full', DOT[entry.tone])}
+                    className={cn('size-2 shrink-0 rounded-full', DOT[toneOf(s)])}
                     aria-hidden
                   />
                   {entry.label}
@@ -80,10 +82,3 @@ export function StatusPicker({
   )
 }
 
-const DOT: Record<Tone, string> = {
-  neutral: 'bg-rail',
-  busy: 'bg-busy',
-  ok: 'bg-ok',
-  wait: 'bg-wait',
-  urgent: 'bg-urgent',
-}
