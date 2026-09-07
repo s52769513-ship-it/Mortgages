@@ -17,4 +17,8 @@ export const LIST_POLL_MS = 20_000
 export const livePoll = {
   refetchInterval: LIST_POLL_MS,
   refetchIntervalInBackground: false,
+  // Marks this query for the update banner: a background poll that changes
+  // its data is worth telling someone about, a query nobody is watching for
+  // change (a single lookup, a form's dropdown options) is not.
+  meta: { live: true },
 } as const

@@ -25,6 +25,7 @@ import { initials } from '@/lib/format'
 import { labelOf, ROLE } from '@/lib/labels'
 import { Button } from '@/components/ui/Button'
 import { NotificationBell } from '@/components/NotificationBell'
+import { LiveUpdateBanner } from '@/components/LiveUpdateBanner'
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { CommandPalette } from '@/components/CommandPalette'
 
@@ -315,6 +316,7 @@ export function AppShell() {
       </nav>
 
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+      <LiveUpdateBanner />
     </div>
   )
 }

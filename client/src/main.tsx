@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { App } from './App'
 import { AuthProvider } from '@/lib/auth'
 import { ToastProvider } from '@/components/ui/Toast'
+import { watchForLiveUpdates } from '@/lib/liveUpdateBanner'
 import './styles/index.css'
 
 const queryClient = new QueryClient({
@@ -12,6 +13,10 @@ const queryClient = new QueryClient({
     queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false },
   },
 })
+
+// One subscription for the whole app; the client itself is a singleton
+// created once at module load, so this never doubles up.
+watchForLiveUpdates(queryClient)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
