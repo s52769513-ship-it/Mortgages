@@ -5,6 +5,7 @@ import { FILE_STAGE, FILE_STATUS, options, URGENCY } from '@/lib/labels'
 import type { Employee, MortgageFile } from '@/types'
 import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/Field'
+import { LtvPicker } from '@/components/LtvPicker'
 import { Modal } from '@/components/ui/Modal'
 import { useToast } from '@/components/ui/Toast'
 
@@ -208,7 +209,7 @@ export function EditFileModal({
           </h3>
           <div className="grid gap-5 sm:grid-cols-2">
             {money('סכום המשכנתא המבוקש', 'requestedAmount')}
-            {money('אחוז המימון', 'ltvPercent')}
+            <LtvPicker value={form.ltvPercent} onChange={(v) => set('ltvPercent', v)} />
             {money('הון עצמי', 'equity')}
             {money('החזר חודשי רצוי', 'desiredMonthly')}
             {money('הכנסה נדרשת', 'requiredIncome')}

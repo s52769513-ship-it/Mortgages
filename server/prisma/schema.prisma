@@ -627,6 +627,16 @@ model CustomField {
   @@index([entityType, position])
 }
 
+/// Office-wide configuration, one JSON value per key. What each key holds is
+/// defined by the route that reads and writes it, not by this table — it
+/// exists to be small and generic, the way an admin settings screen tends to
+/// grow one row at a time.
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
 model ActivityLog {
   id         String     @id @default(cuid())
   entityType EntityType

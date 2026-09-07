@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   Plus,
   Search,
+  Settings,
   UserCog,
   UserPlus,
   Users,
@@ -27,7 +28,7 @@ import { NotificationBell } from '@/components/NotificationBell'
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { CommandPalette } from '@/components/CommandPalette'
 
-/** Six entries, no more. Settings, staff and banks live in the user menu. */
+/** The daily work first, the office's own configuration last. */
 const NAV = [
   { to: '/', label: 'דשבורד', icon: LayoutDashboard, end: true },
   { to: '/clients', label: 'לקוחות ולידים', icon: Users },
@@ -36,6 +37,7 @@ const NAV = [
   { to: '/documents', label: 'מסמכים', icon: FileText },
   { to: '/bank-applications', label: 'בקשות לבנק', icon: Building2 },
   { to: '/employees', label: 'משתמשים', icon: UserCog },
+  { to: '/settings', label: 'הגדרות', icon: Settings },
 ]
 
 /**

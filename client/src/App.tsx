@@ -14,6 +14,7 @@ import { TasksPage } from '@/pages/TasksPage'
 import { DocumentsPage } from '@/pages/DocumentsPage'
 import { BankApplicationsPage } from '@/pages/BankApplicationsPage'
 import { EmployeesPage } from '@/pages/EmployeesPage'
+import { SettingsPage } from '@/pages/SettingsPage'
 
 function FullPageSpinner() {
   return (
@@ -54,6 +55,7 @@ export function App() {
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="bank-applications" element={<BankApplicationsPage />} />
         <Route path="employees" element={<EmployeesPage />} />
+        <Route path="settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
       </Routes>

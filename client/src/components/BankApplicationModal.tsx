@@ -6,6 +6,7 @@ import type { BankApplication } from '@/types'
 import { Button } from '@/components/ui/Button'
 import { Combobox } from '@/components/ui/Combobox'
 import { Checkbox, Input, Select, Textarea } from '@/components/ui/Field'
+import { LtvPicker } from '@/components/LtvPicker'
 import { Modal } from '@/components/ui/Modal'
 import { useToast } from '@/components/ui/Toast'
 
@@ -271,15 +272,7 @@ export function BankApplicationModal({
             onChange={(e) => set('requestedAmount', e.target.value)}
           />
 
-          <Input
-            label="אחוז מימון"
-            type="number"
-            step="0.01"
-            dir="ltr"
-            className="numeric"
-            value={form.ltvPercent}
-            onChange={(e) => set('ltvPercent', e.target.value)}
-          />
+          <LtvPicker value={form.ltvPercent} onChange={(v) => set('ltvPercent', v)} />
         </div>
 
         <Input
