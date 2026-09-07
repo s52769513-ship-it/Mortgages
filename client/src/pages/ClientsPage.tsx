@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MoreHorizontal, Plus, SlidersHorizontal, Upload, Users } from 'lucide-react'
 import { api, qs } from '@/api/client'
 import { livePoll } from '@/lib/livePolling'
@@ -8,7 +8,8 @@ import { relative } from '@/lib/format'
 import { labelOf, LEAD_STATUS, options } from '@/lib/labels'
 import type { Client } from '@/types'
 import { Card } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
+import { RowSelect, type RowOption } from '@/components/RowSelect'
+import { useToast } from '@/components/ui/Toast'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
 import { useListing } from '@/lib/useListing'
@@ -27,13 +28,37 @@ import {
   TableFooter,
 } from '@/components/DataTable'
 
+/** Built once — the same list for every row. */
+const LEAD_STATUS_OPTIONS: RowOption[] = Object.entries(LEAD_STATUS).map(([value, e]) => ({
+  value,
+  label: e.label,
+  tone: e.tone,
+}))
+
 export function ClientsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
   const [managingFields, setManagingFields] = useState(false)
+  const [savingId, setSavingId] = useState<string | null>(null)
   const [params, setParams] = useSearchParams()
+  const queryClient = useQueryClient()
+  const { notify } = useToast()
+
+  /** The lead's status, moved from the row rather than from its card. */
+  const setLeadStatus = useMutation({
+    mutationFn: ({ id, leadStatus }: { id: string; leadStatus: string; done: string }) =>
+      api.patch(`/clients/${id}`, { leadStatus }),
+    onMutate: ({ id }) => setSavingId(id),
+    onSettled: () => setSavingId(null),
+    onSuccess: (_r, { done }) => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      notify('סטטוס הליד עודכן', { detail: done })
+    },
+    onError: (e: Error) => notify('עדכון הסטטוס נכשל', { tone: 'error', detail: e.message }),
+  })
 
   // The mobile FAB opens this screen with ?new=1.
   useEffect(() => {
@@ -93,12 +118,23 @@ export function ClientsPage() {
     {
       key: 'status',
       header: 'סטטוס ליד',
-      width: '0.9fr',
+      width: '1fr',
       sortKey: 'leadStatus',
       render: (c) => (
-        <Badge tone={labelOf(LEAD_STATUS, c.leadStatus).tone}>
-          {labelOf(LEAD_STATUS, c.leadStatus).label}
-        </Badge>
+        <RowSelect
+          menuLabel={`שינוי סטטוס הליד ${c.fullName}`}
+          heading="שינוי סטטוס"
+          value={c.leadStatus}
+          options={LEAD_STATUS_OPTIONS}
+          pending={savingId === c.id}
+          onSelect={(leadStatus) =>
+            setLeadStatus.mutate({
+              id: c.id,
+              leadStatus,
+              done: labelOf(LEAD_STATUS, leadStatus).label,
+            })
+          }
+        />
       ),
     },
     {

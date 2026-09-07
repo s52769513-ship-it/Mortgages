@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2, Pencil } from 'lucide-react'
 import { api, qs } from '@/api/client'
 import { livePoll } from '@/lib/livePolling'
@@ -9,7 +9,8 @@ import { date, money, percent } from '@/lib/format'
 import { BANK_APP_STATUS, labelOf, options } from '@/lib/labels'
 import type { BankApplication } from '@/types'
 import { Card } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
+import { RowSelect, type RowOption } from '@/components/RowSelect'
+import { useToast } from '@/components/ui/Toast'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
 import { BankApplicationModal } from '@/components/BankApplicationModal'
@@ -39,10 +40,35 @@ function ApprovalValidity({ until }: { until: string | null }) {
   )
 }
 
+/** Built once — the same list for every row. */
+const BANK_STATUS_OPTIONS: RowOption[] = Object.entries(BANK_APP_STATUS).map(([value, e]) => ({
+  value,
+  label: e.label,
+  tone: e.tone,
+}))
+
 export function BankApplicationsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [editing, setEditing] = useState<BankApplication | null>(null)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const { notify } = useToast()
+
+  /** The application's status, moved from the row rather than from its card. */
+  const setAppStatus = useMutation({
+    mutationFn: ({ id, status: to }: { id: string; status: string }) =>
+      api.patch<BankApplication>(`/bank-applications/${id}`, { status: to }),
+    onMutate: ({ id }) => setSavingId(id),
+    onSettled: () => setSavingId(null),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['bank-applications'] })
+      queryClient.invalidateQueries({ queryKey: ['file'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      notify('סטטוס הבקשה עודכן', { detail: labelOf(BANK_APP_STATUS, updated.status).label })
+    },
+    onError: (e: Error) => notify('עדכון הבקשה נכשל', { tone: 'error', detail: e.message }),
+  })
 
   const listing = useListing(`${search}|${status}`)
 
@@ -93,9 +119,14 @@ export function BankApplicationsPage() {
       width: '1fr',
       sortKey: 'status',
       render: (a) => (
-        <Badge tone={labelOf(BANK_APP_STATUS, a.status).tone}>
-          {labelOf(BANK_APP_STATUS, a.status).label}
-        </Badge>
+        <RowSelect
+          menuLabel={`שינוי סטטוס הבקשה לבנק ${a.bank?.name ?? ""}`}
+          heading="שינוי סטטוס"
+          value={a.status}
+          options={BANK_STATUS_OPTIONS}
+          pending={savingId === a.id}
+          onSelect={(to) => setAppStatus.mutate({ id: a.id, status: to })}
+        />
       ),
     },
     {

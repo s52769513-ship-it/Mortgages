@@ -8,7 +8,7 @@ import { date } from '@/lib/format'
 import { DOCUMENT_STATUS, labelOf, options } from '@/lib/labels'
 import type { Doc } from '@/types'
 import { Card } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
+import { RowSelect, type RowOption } from '@/components/RowSelect'
 import { Button } from '@/components/ui/Button'
 import { SegmentedControl } from '@/components/ui/Field'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
@@ -69,11 +69,36 @@ function ReviewActions({ doc }: { doc: Doc }) {
   )
 }
 
+/** Built once — the same list for every row. */
+const DOC_STATUS_OPTIONS: RowOption[] = Object.entries(DOCUMENT_STATUS).map(([value, e]) => ({
+  value,
+  label: e.label,
+  tone: e.tone,
+}))
+
 export function DocumentsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [scope, setScope] = useState<Scope>('all')
   const [editing, setEditing] = useState<Doc | null>(null)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const { notify } = useToast()
+
+  /** The document's status, moved from the row rather than from its card. */
+  const setDocStatus = useMutation({
+    mutationFn: ({ id, status: to }: { id: string; status: string }) =>
+      api.patch<Doc>(`/documents/${id}`, { status: to }),
+    onMutate: ({ id }) => setSavingId(id),
+    onSettled: () => setSavingId(null),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      queryClient.invalidateQueries({ queryKey: ['file'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      notify('סטטוס המסמך עודכן', { detail: labelOf(DOCUMENT_STATUS, updated.status).label })
+    },
+    onError: (e: Error) => notify('עדכון המסמך נכשל', { tone: 'error', detail: e.message }),
+  })
 
   const listing = useListing(`${search}|${status}|${scope}`)
 
@@ -129,9 +154,14 @@ export function DocumentsPage() {
       width: '0.9fr',
       sortKey: 'status',
       render: (d) => (
-        <Badge tone={labelOf(DOCUMENT_STATUS, d.status).tone}>
-          {labelOf(DOCUMENT_STATUS, d.status).label}
-        </Badge>
+        <RowSelect
+          menuLabel={`שינוי סטטוס המסמך ${d.docType}`}
+          heading="שינוי סטטוס"
+          value={d.status}
+          options={DOC_STATUS_OPTIONS}
+          pending={savingId === d.id}
+          onSelect={(to) => setDocStatus.mutate({ id: d.id, status: to })}
+        />
       ),
     },
     {
