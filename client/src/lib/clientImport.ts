@@ -125,13 +125,20 @@ function toDate(value: CellValue): string | null {
  */
 function toPhone(value: CellValue): string | null {
   if (value === null || value === undefined) return null
-  let text = String(value).trim()
+  const text = String(value).trim().replace(/\s+/g, ' ')
   if (!text) return null
 
+  const digits = text.replace(/\D/g, '')
+  if (!digits) return null
+
+  // One cell holding two numbers is common in an old list. Squeezing the
+  // punctuation out of it would weld them into a single impossible number,
+  // so anything too long to be one phone is kept as it was written.
+  if (digits.length > 15) return text
+
   if (typeof value === 'number' || /^\d+$/.test(text)) {
-    const digits = text.replace(/\D/g, '')
-    if (digits.length === 9) text = `0${digits}`
-    else text = digits
+    // Excel reads 0521234567 as a number and drops the leading zero.
+    return digits.length === 9 ? `0${digits}` : digits
   }
   return text.replace(/[\s\-()]/g, '') || null
 }

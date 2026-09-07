@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FolderOpen, Mail, MoreHorizontal, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
@@ -9,7 +9,7 @@ import { AVAILABILITY, CLIENT_PRIORITY, CONTACT_METHOD, FILE_STAGE, FILE_STATUS,
 import type { Client, CustomField } from '@/types'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Badge, RAILS } from '@/components/ui/Badge'
-import { FactRow, Tabs, TabPanel } from '@/components/ui/Tabs'
+import { Tabs, TabPanel } from '@/components/ui/Tabs'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { InternalChat } from '@/components/InternalChat'
 import { ActivityFeed } from '@/components/ActivityFeed'
@@ -70,10 +70,10 @@ export function ClientDetailPage() {
     )
   }
 
-  // Only the channels the client actually offered, each with when to use it.
   const files = client.files ?? []
   const customFields = fields?.items ?? []
 
+  // Only the channels the client actually offered, each with when to use it.
   const channels = [
     { value: client.availPhone, label: 'שיחות' },
     { value: client.availWhatsapp, label: 'וואטסאפ' },
@@ -81,6 +81,74 @@ export function ClientDetailPage() {
   ]
     .filter((c) => c.value)
     .map((c) => `${c.label}: ${labelOf(AVAILABILITY, c.value!).label}`)
+
+  const num = (value: ReactNode) => (
+    <span className="numeric" dir="ltr">
+      {value}
+    </span>
+  )
+
+  /**
+   * The client's details as data, so the card can lay them out rather than
+   * each one carrying its own layout. A fact with nothing in it is left out
+   * entirely — a column of dashes says nothing anyone needed to read.
+   */
+  const facts: { label: string; value: ReactNode }[] = [
+    { label: 'מקור הפנייה', value: client.referralSource },
+    { label: 'תאריך פנייה', value: client.referralDate && num(date(client.referralDate)) },
+    { label: 'סוג הפנייה', value: client.inquiryType },
+    {
+      label: 'דרך תקשורת',
+      value: labelOf(CONTACT_METHOD, client.preferredContact).label,
+    },
+    { label: 'אחראי מהמשרד', value: client.owner?.name },
+    {
+      label: 'לווה שני',
+      value: client.partnerName && (
+        <>
+          {client.partnerName}
+          {client.partnerPhone && (
+            <span className="numeric text-ink-muted" dir="ltr">
+              {' · '}
+              {client.partnerPhone}
+            </span>
+          )}
+        </>
+      ),
+    },
+    { label: 'זמינות', value: channels.length > 0 && channels.join(' · ') },
+    {
+      label: 'חשוב ללקוח',
+      value:
+        client.priorities?.length > 0 &&
+        client.priorities.map((p) => labelOf(CLIENT_PRIORITY, p).label).join(' · ') +
+          (client.prioritiesNote ? ` — ${client.prioritiesNote}` : ''),
+    },
+    { label: 'שכר טרחה שסוכם', value: client.agreedFee && num(money(client.agreedFee)) },
+    { label: 'תאריך ביצוע משוער', value: client.targetDate && num(date(client.targetDate)) },
+    // Fields the office added for itself, usually on an import. They sit with
+    // everything else: once a field exists it is a detail of the client, not
+    // an annex to one.
+    ...customFields.map((field) => {
+      const value = client.custom?.[field.key]
+      return {
+        label: field.label,
+        value:
+          value === undefined || value === null || value === ''
+            ? null
+            : field.type === 'BOOLEAN'
+              ? value
+                ? 'כן'
+                : 'לא'
+              : field.type === 'DATE'
+                ? num(date(String(value)))
+                : field.type === 'NUMBER'
+                  ? num(String(value))
+                  : String(value),
+      }
+    }),
+    { label: 'נוצר', value: num(date(client.createdAt)) },
+  ].filter((fact) => Boolean(fact.value))
 
   return (
     <div className="space-y-6">
@@ -196,87 +264,24 @@ export function ClientDetailPage() {
         <div className="space-y-6">
           <Card className="overflow-hidden">
             <CardHeader title="פרטי הלקוח" />
-            <dl className="divide-y divide-row px-6 py-2">
-              <FactRow label="מקור הפנייה" value={client.referralSource} />
-              <FactRow
-                label="תאריך פנייה"
-                value={<span className="numeric" dir="ltr">{date(client.referralDate)}</span>}
-              />
-              <FactRow label="סוג הפנייה" value={client.inquiryType} />
-              <FactRow
-                label="דרך תקשורת מועדפת"
-                value={labelOf(CONTACT_METHOD, client.preferredContact).label}
-              />
-              <FactRow label="איש קשר מטעם המשרד" value={client.owner?.name} />
-              {client.partnerName && (
-                <FactRow
-                  label="לווה שני"
-                  value={
-                    <>
-                      {client.partnerName}
-                      {client.partnerPhone && (
-                        <span className="numeric text-ink-muted" dir="ltr">
-                          {' · '}
-                          {client.partnerPhone}
-                        </span>
-                      )}
-                    </>
-                  }
-                />
-              )}
-              {channels.length > 0 && (
-                <FactRow label="זמינות" value={channels.join(' · ')} />
-              )}
-              {client.priorities?.length > 0 && (
-                <FactRow
-                  label="חשוב ללקוח"
-                  value={
-                    client.priorities
-                      .map((p) => labelOf(CLIENT_PRIORITY, p).label)
-                      .join(' · ') + (client.prioritiesNote ? ` — ${client.prioritiesNote}` : '')
-                  }
-                />
-              )}
-              {client.agreedFee && (
-                <FactRow
-                  label="שכר טרחה שסוכם"
-                  value={<span className="numeric" dir="ltr">{money(client.agreedFee)}</span>}
-                />
-              )}
-              {client.targetDate && (
-                <FactRow
-                  label="תאריך ביצוע משוער"
-                  value={<span className="numeric" dir="ltr">{date(client.targetDate)}</span>}
-                />
-              )}
-              {/* Fields the office added for itself, usually on an import.
-                  They sit with everything else: once a field exists it is a
-                  detail of the client, not an annex to one. */}
-              {customFields.map((field) => {
-                const value = client.custom?.[field.key]
-                if (value === undefined || value === null || value === '') return null
-                return (
-                  <FactRow
-                    key={field.id}
-                    label={field.label}
-                    value={
-                      field.type === 'BOOLEAN' ? (
-                        value ? 'כן' : 'לא'
-                      ) : field.type === 'DATE' ? (
-                        <span className="numeric" dir="ltr">{date(String(value))}</span>
-                      ) : field.type === 'NUMBER' ? (
-                        <span className="numeric" dir="ltr">{String(value)}</span>
-                      ) : (
-                        String(value)
-                      )
-                    }
-                  />
-                )
-              })}
-              <FactRow
-                label="נוצר"
-                value={<span className="numeric" dir="ltr">{date(client.createdAt)}</span>}
-              />
+            {/* Two columns, so a label is never a hand-span away from its own
+                value. One column across a card this wide left the value at the
+                far edge, which is a long way to travel for one word. */}
+            <dl className="grid px-6 pb-0 pt-1 md:grid-cols-2 md:gap-x-10">
+              {facts.map((fact) => (
+                <div
+                  key={fact.label}
+                  className="flex items-baseline gap-3 border-b border-row py-2.5"
+                >
+                  <dt className="w-[118px] shrink-0 text-[13px] text-ink-muted">{fact.label}</dt>
+                  <dd className="min-w-0 flex-1 text-[14px] font-medium text-ink">
+                    {fact.value ?? '—'}
+                  </dd>
+                </div>
+              ))}
+              {/* Keeps the closing rule the full width of the card when the
+                  number of facts is odd. */}
+              {facts.length % 2 === 1 && <div className="hidden border-b border-row md:block" />}
             </dl>
 
             {/* What the client told us before anything was checked. Kept apart
@@ -356,7 +361,7 @@ export function ClientDetailPage() {
                       )}
                     >
                       <span
-                        className="numeric w-24 shrink-0 text-[14px] font-semibold text-steel-700"
+                        className="numeric w-[104px] shrink-0 whitespace-nowrap text-[14px] font-semibold text-steel-700"
                         dir="ltr"
                       >
                         {file.fileNumber}
@@ -373,7 +378,7 @@ export function ClientDetailPage() {
                       <Badge tone={labelOf(FILE_STAGE, file.stage).tone}>
                         {labelOf(FILE_STAGE, file.stage).label}
                       </Badge>
-                      <span className="hidden w-20 shrink-0 text-[13px] text-ink-subtle md:block">
+                      <span className="hidden w-24 shrink-0 whitespace-nowrap text-[13px] text-ink-subtle md:block">
                         {relative(file.updatedAt)}
                       </span>
                     </Link>
