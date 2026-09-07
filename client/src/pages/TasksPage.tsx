@@ -289,11 +289,7 @@ export function TasksPage() {
               columns={columns}
               rows={data.items}
               toneOf={(t) => labelOf(TASK_STATUS, t.status).tone}
-              rowActions={(t) => (
-                <Button size="sm" variant="secondary" onClick={() => setEditing(t)}>
-                  ערוך
-                </Button>
-              )}
+              onRowClick={(t) => setEditing(t)}
               minWidth={1040}
               sort={listing.sort}
               onSort={listing.setSort}
@@ -304,7 +300,7 @@ export function TasksPage() {
               page={listing.page}
               pageSize={listing.pageSize}
               onPage={listing.setPage}
-              hint="ריחוף על שורה חושף עריכה"
+              hint="לחיצה על שורה פותחת אותה לעריכה"
             />
           </>
         )}

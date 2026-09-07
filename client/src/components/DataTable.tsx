@@ -130,6 +130,7 @@ export function DataTable<T extends { id: string }>({
   rows,
   toneOf,
   linkTo,
+  onRowClick,
   rowActions,
   minWidth = 860,
   sort,
@@ -142,6 +143,10 @@ export function DataTable<T extends { id: string }>({
   /** Drives the 4px status rail on the row's start edge. */
   toneOf?: (row: T) => Tone
   linkTo?: (row: T) => string
+  /** Opens the row's own record — a modal, most often — when it has no page
+   *  of its own to navigate to. Ignored if linkTo is also given; a row goes
+   *  to one place on click, and a real page beats a modal. */
+  onRowClick?: (row: T) => void
   rowActions?: (row: T) => ReactNode
   minWidth?: number
   sort?: Sort
@@ -254,12 +259,14 @@ export function DataTable<T extends { id: string }>({
                   ground rather than blending with the cell beneath it. */}
               {rowActions && (
                 <span
-                  // The whole row is a link. A button sitting on top of it must
-                  // do its own job and not navigate as well.
+                  // The whole row is a link or a click target of its own. A
+                  // control sitting on top of it must do its own job, by
+                  // mouse or by keyboard, and not also trigger the row's.
                   onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
                   }}
+                  onKeyDown={(e) => e.stopPropagation()}
                   className={cn(
                     'absolute inset-y-1 left-3 flex items-center gap-2 rounded-md',
                     'bg-surface px-3 shadow-raised',
@@ -278,6 +285,27 @@ export function DataTable<T extends { id: string }>({
             <Link to={linkTo(row)} className="block">
               {content}
             </Link>
+          ) : onRowClick ? (
+            // No page of its own to link to, so the row itself is the
+            // control — the record opens the way a link would, without a
+            // button anyone has to find first.
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => onRowClick(row)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return
+                e.preventDefault()
+                onRowClick(row)
+              }}
+              className={cn(
+                'block cursor-pointer',
+                'focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2',
+                'focus-visible:outline-[rgb(var(--steel-600))]',
+              )}
+            >
+              {content}
+            </div>
           ) : (
             content
           )

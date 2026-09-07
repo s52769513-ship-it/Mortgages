@@ -287,23 +287,19 @@ export function EmployeesPage() {
               columns={columns}
               rows={data}
               toneOf={(e) => (e.active ? 'busy' : 'neutral')}
+              onRowClick={isAdmin ? (e) => setEditing(e) : undefined}
               rowActions={
                 isAdmin
                   ? (e) => (
-                      <>
-                        <Button size="sm" variant="secondary" onClick={() => setEditing(e)}>
-                          ערוך
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          loading={setActive.isPending && setActive.variables?.id === e.id}
-                          loadingLabel="…"
-                          onClick={() => setActive.mutate({ id: e.id, active: !e.active })}
-                        >
-                          {e.active ? 'השבת' : 'הפעל'}
-                        </Button>
-                      </>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={setActive.isPending && setActive.variables?.id === e.id}
+                        loadingLabel="…"
+                        onClick={() => setActive.mutate({ id: e.id, active: !e.active })}
+                      >
+                        {e.active ? 'השבת' : 'הפעל'}
+                      </Button>
                     )
                   : undefined
               }
@@ -312,7 +308,7 @@ export function EmployeesPage() {
             <TableFooter
               shown={data.length}
               total={data.length}
-              hint={isAdmin ? 'ריחוף על שורה חושף עריכה והשבתה' : undefined}
+              hint={isAdmin ? 'לחיצה על שורה פותחת אותה לעריכה · ריחוף חושף השבתה' : undefined}
             />
           </>
         )}

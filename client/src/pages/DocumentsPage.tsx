@@ -277,14 +277,8 @@ export function DocumentsPage() {
             columns={columns}
             rows={data.items}
             toneOf={(d) => labelOf(DOCUMENT_STATUS, d.status).tone}
-            rowActions={(d) => (
-              <>
-                <Button size="sm" variant="secondary" onClick={() => setEditing(d)}>
-                  פרטים
-                </Button>
-                <ReviewActions doc={d} />
-              </>
-            )}
+            onRowClick={(d) => setEditing(d)}
+            rowActions={(d) => <ReviewActions doc={d} />}
             minWidth={1080}
             sort={listing.sort}
             onSort={listing.setSort}
@@ -295,7 +289,7 @@ export function DocumentsPage() {
             page={listing.page}
             pageSize={listing.pageSize}
             onPage={listing.setPage}
-            hint="ריחוף על שורה חושף פרטים, אישור או סימון כלא תקין"
+            hint="לחיצה על שורה פותחת את הפרטים · ריחוף חושף אישור או סימון כלא תקין"
           />
         </>
       )}
