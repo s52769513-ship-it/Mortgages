@@ -203,7 +203,7 @@ export function EmployeesPage() {
       header: 'טלפון',
       width: '0.8fr',
       render: (e) => (
-        <span className="numeric block truncate text-[14px] text-ink-muted" dir="ltr">
+        <span className="numeric text-right block truncate text-[14px] text-ink-muted" dir="ltr">
           {e.phone || '—'}
         </span>
       ),
@@ -213,7 +213,7 @@ export function EmployeesPage() {
       header: 'תיקים · משימות',
       width: '0.9fr',
       render: (e) => (
-        <span className="numeric text-[14px] text-ink-muted" dir="ltr">
+        <span className="numeric text-right text-[14px] text-ink-muted" dir="ltr">
           {e._count ? `${e._count.filesOwned} · ${e._count.tasksOwned}` : '—'}
         </span>
       ),
@@ -231,7 +231,7 @@ export function EmployeesPage() {
       header: 'נוצר',
       width: '0.7fr',
       render: (e) => (
-        <span className="numeric block text-[13.5px] text-ink-subtle" dir="ltr">
+        <span className="numeric text-right block text-[13.5px] text-ink-subtle" dir="ltr">
           {date(e.createdAt)}
         </span>
       ),

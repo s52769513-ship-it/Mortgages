@@ -9,7 +9,6 @@ import { date, money, relative } from '@/lib/format'
 import { FILE_STAGE, FILE_STATUS, labelOf, options, URGENCY, type Stage } from '@/lib/labels'
 import type { MortgageFile } from '@/types'
 import { Card } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDelete } from '@/components/ConfirmDelete'
 import { useToast } from '@/components/ui/Toast'
@@ -17,6 +16,7 @@ import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
 import { NewFileModal } from '@/components/NewFileModal'
 import { PipelineBoard } from '@/components/PipelineBoard'
 import { StagePicker } from '@/components/StagePicker'
+import { StatusPicker } from '@/components/StatusPicker'
 import { useListing } from '@/lib/useListing'
 import { useHiddenColumns, useSavedViews, type SavedView } from '@/lib/useTableViews'
 import { BulkBar, BulkSelect, ColumnsMenu, SavedViewsMenu } from '@/components/TableToolbar'
@@ -145,6 +145,20 @@ export function FilesPage() {
     onError: (e: Error) => notify('העברת התיק נכשלה', { tone: 'error', detail: e.message }),
   })
 
+  const changeStatus = useMutation({
+    mutationFn: ({ id, status, clearBlockReason }: { id: string; status: string; clearBlockReason: boolean }) =>
+      api.patch(`/files/${id}`, { status, ...(clearBlockReason ? { blockReason: null } : {}) }),
+    onMutate: ({ id }) => {
+      setMovingId(id)
+    },
+    onSettled: () => setMovingId(null),
+    onSuccess: (_result, { status }) => {
+      invalidate()
+      notify('מצב התיק עודכן', { detail: labelOf(FILE_STATUS, status).label })
+    },
+    onError: (e: Error) => notify('שינוי המצב נכשל', { tone: 'error', detail: e.message }),
+  })
+
   /**
    * Applies an operation to each selected file in turn and reports what
    * actually happened. Stopping at the first error would leave the office
@@ -246,7 +260,7 @@ export function FilesPage() {
         width: '0.9fr',
         sortKey: 'requestedAmount',
         render: (f) => (
-          <span className="numeric block truncate text-[14px] text-ink-muted" dir="ltr">
+          <span className="numeric text-right block truncate text-[14px] text-ink-muted" dir="ltr">
             {money(f.requestedAmount)}
           </span>
         ),
@@ -269,12 +283,18 @@ export function FilesPage() {
       {
         key: 'status',
         header: 'מצב',
-        width: '0.8fr',
+        width: '1fr',
         sortKey: 'status',
         render: (f) => (
-          <Badge tone={labelOf(FILE_STATUS, f.status).tone}>
-            {labelOf(FILE_STATUS, f.status).label}
-          </Badge>
+          <StatusPicker
+            fileId={f.id}
+            fileNumber={f.fileNumber}
+            status={f.status}
+            moving={movingId === f.id}
+            onMove={(id, status) =>
+              changeStatus.mutate({ id, status, clearBlockReason: f.status === 'BLOCKED' && status !== 'BLOCKED' })
+            }
+          />
         ),
       },
       {
@@ -562,7 +582,7 @@ export function FilesPage() {
                   .filter((f) => selected.includes(f.id))
                   .map((f) => (
                     <li key={f.id} className="flex items-center gap-2">
-                      <span className="numeric shrink-0" dir="ltr">
+                      <span className="numeric text-right shrink-0" dir="ltr">
                         {f.fileNumber}
                       </span>
                       <span className="truncate">{f.client?.fullName}</span>

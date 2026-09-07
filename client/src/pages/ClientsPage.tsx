@@ -77,7 +77,7 @@ export function ClientsPage() {
       header: 'טלפון',
       width: '0.9fr',
       render: (c) => (
-        <span className="numeric block truncate text-[14px] text-ink-muted" dir="ltr">
+        <span className="numeric text-right block truncate text-[14px] text-ink-muted" dir="ltr">
           {c.phone || '—'}
         </span>
       ),
@@ -106,7 +106,7 @@ export function ClientsPage() {
       header: 'תיקים',
       width: '0.8fr',
       render: (c) => (
-        <span className="numeric text-[14px] text-ink-muted" dir="ltr">
+        <span className="numeric text-right text-[14px] text-ink-muted" dir="ltr">
           {c._count?.files || '—'}
         </span>
       ),

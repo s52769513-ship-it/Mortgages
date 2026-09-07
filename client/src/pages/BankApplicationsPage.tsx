@@ -78,7 +78,7 @@ export function BankApplicationsPage() {
       width: '1.1fr',
       render: (a) => (
         <>
-          <span className="numeric block truncate text-[13.5px] text-steel-700" dir="ltr">
+          <span className="numeric text-right block truncate text-[13.5px] text-steel-700" dir="ltr">
             {a.file?.fileNumber}
           </span>
           <span className="block truncate text-[13px] text-ink-muted">
@@ -104,7 +104,7 @@ export function BankApplicationsPage() {
       width: '0.9fr',
       sortKey: 'requestedAmount',
       render: (a) => (
-        <span className="numeric block text-[14px] text-ink-muted" dir="ltr">
+        <span className="numeric text-right block text-[14px] text-ink-muted" dir="ltr">
           {money(a.requestedAmount)}
         </span>
       ),
@@ -114,7 +114,7 @@ export function BankApplicationsPage() {
       header: 'מימון',
       width: '0.6fr',
       render: (a) => (
-        <span className="numeric block text-[14px] text-ink-muted" dir="ltr">
+        <span className="numeric text-right block text-[14px] text-ink-muted" dir="ltr">
           {percent(a.ltvPercent)}
         </span>
       ),

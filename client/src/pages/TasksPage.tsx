@@ -103,7 +103,7 @@ export function TasksPage() {
       width: '1.1fr',
       render: (t) => (
         <>
-          <span className="numeric block truncate text-[13.5px] text-steel-700" dir="ltr">
+          <span className="numeric text-right block truncate text-[13.5px] text-steel-700" dir="ltr">
             {t.file?.fileNumber}
             <span className="text-ink-subtle"> · {t.seq}</span>
           </span>
@@ -160,7 +160,7 @@ export function TasksPage() {
       render: (t) => {
         if (t.status === 'COMPLETED') {
           return (
-            <span className="numeric block text-[13.5px] text-ok-ink" dir="ltr">
+            <span className="numeric text-right block text-[13.5px] text-ok-ink" dir="ltr">
               {date(t.completedAt)}
             </span>
           )

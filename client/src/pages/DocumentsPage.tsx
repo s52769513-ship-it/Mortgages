@@ -114,7 +114,7 @@ export function DocumentsPage() {
       width: '1.1fr',
       render: (d) => (
         <>
-          <span className="numeric block truncate text-[13.5px] text-steel-700" dir="ltr">
+          <span className="numeric text-right block truncate text-[13.5px] text-steel-700" dir="ltr">
             {d.file?.fileNumber ?? '—'}
           </span>
           <span className="block truncate text-[13px] text-ink-muted">
@@ -139,7 +139,7 @@ export function DocumentsPage() {
       header: 'גרסה',
       width: '0.5fr',
       render: (d) => (
-        <span className="numeric text-[14px] text-ink-muted" dir="ltr">
+        <span className="numeric text-right text-[14px] text-ink-muted" dir="ltr">
           {d.version}
         </span>
       ),
@@ -150,7 +150,7 @@ export function DocumentsPage() {
       width: '0.7fr',
       sortKey: 'receivedAt',
       render: (d) => (
-        <span className="numeric block text-[13.5px] text-ink-subtle" dir="ltr">
+        <span className="numeric text-right block text-[13.5px] text-ink-subtle" dir="ltr">
           {date(d.receivedAt)}
         </span>
       ),
