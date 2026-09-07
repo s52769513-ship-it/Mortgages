@@ -27,10 +27,19 @@ const SCHEMAS: Record<string, z.ZodTypeAny> = {
     // Order is chosen by the office, not remembered from the request — sorted
     // once here, so the picker never has to guess how to lay out the chips.
     .transform((values) => Array.from(new Set(values)).sort((a, b) => a - b)),
+
+  dealTypes: z
+    .array(z.string().trim().min(1).max(60))
+    .min(1, 'נדרש לפחות סוג עסקה אחד ברשימה')
+    .max(20, 'עד 20 סוגי עסקה ברשימה')
+    // Text has no natural sort order the way a percentage does — the order
+    // the office built the list in is kept, first occurrence wins.
+    .transform((values) => Array.from(new Set(values.map((v) => v.trim())))),
 }
 
 const DEFAULTS: Record<string, unknown> = {
   ltvPresets: [50, 60, 70, 75, 80],
+  dealTypes: ['רכישת דירה', 'מחזור משכנתא', 'משכנתא לכל מטרה', 'בנייה עצמית', 'גישור'],
 }
 
 settingsRouter.get(

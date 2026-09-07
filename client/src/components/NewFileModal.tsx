@@ -5,6 +5,7 @@ import { api } from '@/api/client'
 import type { Client, MortgageFile } from '@/types'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Field'
+import { DealTypeSelect } from '@/components/DealTypeSelect'
 import { Modal } from '@/components/ui/Modal'
 import { useToast } from '@/components/ui/Toast'
 
@@ -93,11 +94,9 @@ export function NewFileModal({
         )}
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Input
-            label="סוג עסקה"
-            hint="רכישת דירה, מחזור, בנייה עצמית"
+          <DealTypeSelect
             value={form.dealType}
-            onChange={(e) => setForm({ ...form, dealType: e.target.value })}
+            onChange={(v) => setForm({ ...form, dealType: v })}
           />
           <Input
             label="סוג הנכס"

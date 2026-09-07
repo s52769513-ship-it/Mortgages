@@ -6,6 +6,7 @@ import type { Employee, MortgageFile } from '@/types'
 import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/Field'
 import { LtvPicker } from '@/components/LtvPicker'
+import { DealTypeSelect } from '@/components/DealTypeSelect'
 import { Modal } from '@/components/ui/Modal'
 import { useToast } from '@/components/ui/Toast'
 
@@ -181,11 +182,7 @@ export function EditFileModal({
             Property
           </h3>
           <div className="grid gap-5 sm:grid-cols-2">
-            <Input
-              label="סוג העסקה"
-              value={form.dealType}
-              onChange={(e) => set('dealType', e.target.value)}
-            />
+            <DealTypeSelect value={form.dealType} onChange={(v) => set('dealType', v)} />
             <Input
               label="סוג הנכס"
               value={form.propertyType}

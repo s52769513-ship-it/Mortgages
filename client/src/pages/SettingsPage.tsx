@@ -9,8 +9,8 @@ import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
 
 /**
- * Office-wide configuration. One card per setting today — the financing
- * percentages offered as a quick pick on a file and on a bank application —
+ * Office-wide configuration. One card per setting — today the financing
+ * percentages and the deal types offered as a one-click choice on a file —
  * with room to add another card the next time something else deserves one.
  *
  * Read-only for everyone, editable only by an admin, the same split the
@@ -18,46 +18,12 @@ import { useToast } from '@/components/ui/Toast'
  */
 export function SettingsPage() {
   const { user } = useAuth()
-  const { notify } = useToast()
-  const queryClient = useQueryClient()
   const isAdmin = user?.role === 'ADMIN'
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['settings'],
     queryFn: () => api.get<Record<string, unknown>>('/settings'),
   })
-
-  const [draft, setDraft] = useState('')
-
-  const presets = Array.isArray(data?.ltvPresets) ? (data!.ltvPresets as number[]) : []
-
-  const save = useMutation({
-    mutationFn: (values: number[]) =>
-      api.patch<{ value: number[] }>('/settings/ltvPresets', { value: values }),
-    onSuccess: (result) => {
-      queryClient.setQueryData(['settings'], (prev: Record<string, unknown> | undefined) => ({
-        ...(prev ?? {}),
-        ltvPresets: result.value,
-      }))
-    },
-    onError: (e: Error) => notify('העדכון נכשל', { tone: 'error', detail: e.message }),
-  })
-
-  const addPreset = () => {
-    const value = Number(draft)
-    if (!Number.isInteger(value) || value < 1 || value > 100) {
-      notify('אחוז חייב להיות מספר שלם בין 1 ל-100', { tone: 'error' })
-      return
-    }
-    if (presets.includes(value)) {
-      notify('האחוז הזה כבר ברשימה', { tone: 'error' })
-      return
-    }
-    setDraft('')
-    save.mutate([...presets, value].sort((a, b) => a - b))
-  }
-
-  const removePreset = (value: number) => save.mutate(presets.filter((p) => p !== value))
 
   if (error) return <ErrorState message="לא הצלחנו לטעון את ההגדרות." onRetry={() => refetch()} />
 
@@ -71,106 +37,273 @@ export function SettingsPage() {
         <p className="mt-1 text-[15px] text-ink-muted">מה מוצע מראש בטפסים, ברחבי המערכת.</p>
       </div>
 
-      <Card className="overflow-hidden">
-        <CardHeader
-          title="אחוזי מימון להצעה מהירה"
-          subtitle="מוצגים כבחירה אחת-קליק בתיק ובבקשה לבנק. כל אחוז אחר עדיין ניתן להקליד ידנית."
-        />
-
-        {isLoading ? (
-          <div className="space-y-2 p-6">
-            <Skeleton className="h-9 w-2/3" />
-          </div>
-        ) : !isAdmin ? (
-          <div className="flex flex-wrap gap-2 px-6 py-5">
-            {presets.length === 0 ? (
-              <p className="text-[14px] text-ink-muted">אין עדיין אחוזים מוגדרים.</p>
-            ) : (
-              presets.map((p) => (
-                <span
-                  key={p}
-                  className="numeric rounded-md border border-field px-3.5 py-2 text-[14px] font-medium text-ink"
-                  dir="ltr"
-                >
-                  {p}%
-                </span>
-              ))
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4 px-6 py-5">
-            <div className="flex flex-wrap gap-2">
-              {presets.map((p) => (
-                <span
-                  key={p}
-                  className={cn(
-                    'numeric flex items-center gap-1.5 rounded-md border border-field ps-3.5 pe-2 py-1.5',
-                    'text-[14px] font-medium text-ink',
-                  )}
-                  dir="ltr"
-                >
-                  {p}%
-                  <button
-                    type="button"
-                    aria-label={`הסר את ${p}%`}
-                    onClick={() => removePreset(p)}
-                    disabled={save.isPending}
-                    className="rounded p-0.5 text-ink-subtle transition-colors duration-micro hover:bg-urgent-tint hover:text-urgent-ink disabled:opacity-50"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </span>
-              ))}
-              {presets.length === 0 && (
-                <p className="text-[14px] text-ink-muted">אין עדיין אחוזים ברשימה — הוסיפו למטה.</p>
-              )}
-            </div>
-
-            <div className="flex items-end gap-2.5">
-              <div className="w-32">
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-muted">
-                  אחוז חדש
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={100}
-                  dir="ltr"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addPreset()}
-                  placeholder="למשל 75"
-                  className={cn(
-                    'numeric h-10 w-full rounded-md border border-field bg-surface px-3 text-[15px] text-ink',
-                    'placeholder:text-ink-faint transition-colors duration-micro ease-standard',
-                    'focus:border-steel-600',
-                  )}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={addPreset}
-                disabled={!draft.trim() || save.isPending}
-                className={cn(
-                  'flex h-10 items-center gap-1.5 rounded-md bg-steel-600 px-4 text-[14px] font-medium text-white',
-                  'shadow-button transition-colors duration-micro hover:bg-steel-700 disabled:pointer-events-none disabled:opacity-45',
-                )}
-              >
-                <Plus className="size-4" />
-                הוסף
-              </button>
-            </div>
-          </div>
-        )}
-      </Card>
+      <PercentListCard isAdmin={isAdmin} isLoading={isLoading} values={data?.ltvPresets} />
+      <TextListCard isAdmin={isAdmin} isLoading={isLoading} values={data?.dealTypes} />
 
       {!isAdmin && (
         <EmptyState
           icon={<Lock className="size-6" />}
           title="שינוי הגדרות שמור למנהל המערכת"
-          description="הרשימה כאן זמינה לצפייה לכולם; רק מנהל יכול להוסיף או להסיר ממנה."
+          description="הרשימות כאן זמינות לצפייה לכולם; רק מנהל יכול להוסיף או להסיר מהן."
         />
       )}
     </div>
+  )
+}
+
+/** One removable pill, admin-only close button included. */
+function Chip({
+  children,
+  onRemove,
+  removing,
+  dir,
+}: {
+  children: React.ReactNode
+  onRemove?: () => void
+  removing?: boolean
+  dir?: 'ltr' | 'rtl'
+}) {
+  return (
+    <span
+      className={cn(
+        'flex items-center gap-1.5 rounded-md border border-field py-1.5 text-[14px] font-medium text-ink',
+        onRemove ? 'ps-3.5 pe-2' : 'px-3.5',
+      )}
+      dir={dir}
+    >
+      {children}
+      {onRemove && (
+        <button
+          type="button"
+          aria-label="הסר"
+          onClick={onRemove}
+          disabled={removing}
+          className="rounded p-0.5 text-ink-subtle transition-colors duration-micro hover:bg-urgent-tint hover:text-urgent-ink disabled:opacity-50"
+        >
+          <X className="size-3.5" />
+        </button>
+      )}
+    </span>
+  )
+}
+
+/** Financing percentages: a plain number, sorted low to high after every edit. */
+function PercentListCard({
+  isAdmin,
+  isLoading,
+  values,
+}: {
+  isAdmin: boolean
+  isLoading: boolean
+  values: unknown
+}) {
+  const { notify } = useToast()
+  const queryClient = useQueryClient()
+  const [draft, setDraft] = useState('')
+  const presets = Array.isArray(values) ? (values as number[]) : []
+
+  const save = useMutation({
+    mutationFn: (next: number[]) =>
+      api.patch<{ value: number[] }>('/settings/ltvPresets', { value: next }),
+    onSuccess: (result) => {
+      queryClient.setQueryData(['settings'], (prev: Record<string, unknown> | undefined) => ({
+        ...(prev ?? {}),
+        ltvPresets: result.value,
+      }))
+    },
+    onError: (e: Error) => notify('העדכון נכשל', { tone: 'error', detail: e.message }),
+  })
+
+  const add = () => {
+    const value = Number(draft)
+    if (!Number.isInteger(value) || value < 1 || value > 100) {
+      notify('אחוז חייב להיות מספר שלם בין 1 ל-100', { tone: 'error' })
+      return
+    }
+    if (presets.includes(value)) {
+      notify('האחוז הזה כבר ברשימה', { tone: 'error' })
+      return
+    }
+    setDraft('')
+    save.mutate([...presets, value].sort((a, b) => a - b))
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader
+        title="אחוזי מימון להצעה מהירה"
+        subtitle="מוצגים כבחירה אחת-קליק בתיק ובבקשה לבנק. כל אחוז אחר עדיין ניתן להקליד ידנית."
+      />
+      {isLoading ? (
+        <div className="p-6">
+          <Skeleton className="h-9 w-2/3" />
+        </div>
+      ) : !isAdmin ? (
+        <div className="flex flex-wrap gap-2 px-6 py-5">
+          {presets.length === 0 ? (
+            <p className="text-[14px] text-ink-muted">אין עדיין אחוזים מוגדרים.</p>
+          ) : (
+            presets.map((p) => (
+              <Chip key={p} dir="ltr">
+                {p}%
+              </Chip>
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4 px-6 py-5">
+          <div className="flex flex-wrap gap-2">
+            {presets.map((p) => (
+              <Chip
+                key={p}
+                dir="ltr"
+                removing={save.isPending}
+                onRemove={() => save.mutate(presets.filter((x) => x !== p))}
+              >
+                <span className="numeric">{p}%</span>
+              </Chip>
+            ))}
+            {presets.length === 0 && (
+              <p className="text-[14px] text-ink-muted">אין עדיין אחוזים ברשימה — הוסיפו למטה.</p>
+            )}
+          </div>
+
+          <div className="flex items-end gap-2.5">
+            <div className="w-32">
+              <label className="mb-1.5 block text-[12px] font-semibold text-ink-muted">
+                אחוז חדש
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                dir="ltr"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && add()}
+                placeholder="למשל 75"
+                className={cn(
+                  'numeric h-10 w-full rounded-md border border-field bg-surface px-3 text-[15px] text-ink',
+                  'placeholder:text-ink-faint transition-colors duration-micro ease-standard',
+                  'focus:border-steel-600',
+                )}
+              />
+            </div>
+            <AddButton onClick={add} disabled={!draft.trim() || save.isPending} />
+          </div>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+/** Deal types and any future free-text list: order is the office's own, kept as entered. */
+function TextListCard({
+  isAdmin,
+  isLoading,
+  values,
+}: {
+  isAdmin: boolean
+  isLoading: boolean
+  values: unknown
+}) {
+  const { notify } = useToast()
+  const queryClient = useQueryClient()
+  const [draft, setDraft] = useState('')
+  const types = Array.isArray(values) ? (values as string[]) : []
+
+  const save = useMutation({
+    mutationFn: (next: string[]) =>
+      api.patch<{ value: string[] }>('/settings/dealTypes', { value: next }),
+    onSuccess: (result) => {
+      queryClient.setQueryData(['settings'], (prev: Record<string, unknown> | undefined) => ({
+        ...(prev ?? {}),
+        dealTypes: result.value,
+      }))
+    },
+    onError: (e: Error) => notify('העדכון נכשל', { tone: 'error', detail: e.message }),
+  })
+
+  const add = () => {
+    const value = draft.trim()
+    if (!value) return
+    if (types.includes(value)) {
+      notify('סוג העסקה הזה כבר ברשימה', { tone: 'error' })
+      return
+    }
+    setDraft('')
+    save.mutate([...types, value])
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader
+        title="סוגי עסקה להצעה מהירה"
+        subtitle="הרשימה שמוצעת לבחירה בפתיחת תיק ובעריכתו, בסדר שבו הוספתם אותה."
+      />
+      {isLoading ? (
+        <div className="p-6">
+          <Skeleton className="h-9 w-2/3" />
+        </div>
+      ) : !isAdmin ? (
+        <div className="flex flex-wrap gap-2 px-6 py-5">
+          {types.length === 0 ? (
+            <p className="text-[14px] text-ink-muted">אין עדיין סוגי עסקה מוגדרים.</p>
+          ) : (
+            types.map((t) => <Chip key={t}>{t}</Chip>)
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4 px-6 py-5">
+          <div className="flex flex-wrap gap-2">
+            {types.map((t) => (
+              <Chip key={t} removing={save.isPending} onRemove={() => save.mutate(types.filter((x) => x !== t))}>
+                {t}
+              </Chip>
+            ))}
+            {types.length === 0 && (
+              <p className="text-[14px] text-ink-muted">אין עדיין סוגי עסקה ברשימה — הוסיפו למטה.</p>
+            )}
+          </div>
+
+          <div className="flex items-end gap-2.5">
+            <div className="max-w-xs flex-1">
+              <label className="mb-1.5 block text-[12px] font-semibold text-ink-muted">
+                סוג עסקה חדש
+              </label>
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && add()}
+                placeholder="למשל החלפת בנק מלווה"
+                className={cn(
+                  'h-10 w-full rounded-md border border-field bg-surface px-3 text-[15px] text-ink',
+                  'placeholder:text-ink-faint transition-colors duration-micro ease-standard',
+                  'focus:border-steel-600',
+                )}
+              />
+            </div>
+            <AddButton onClick={add} disabled={!draft.trim() || save.isPending} />
+          </div>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function AddButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'flex h-10 items-center gap-1.5 rounded-md bg-steel-600 px-4 text-[14px] font-medium text-white',
+        'shadow-button transition-colors duration-micro hover:bg-steel-700 disabled:pointer-events-none disabled:opacity-45',
+      )}
+    >
+      <Plus className="size-4" />
+      הוסף
+    </button>
   )
 }
