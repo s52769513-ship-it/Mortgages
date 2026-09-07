@@ -16,6 +16,7 @@ import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
 import { NewFileModal } from '@/components/NewFileModal'
 import { PipelineBoard } from '@/components/PipelineBoard'
+import { StagePicker } from '@/components/StagePicker'
 import { useListing } from '@/lib/useListing'
 import { useHiddenColumns, useSavedViews, type SavedView } from '@/lib/useTableViews'
 import { BulkBar, BulkSelect, ColumnsMenu, SavedViewsMenu } from '@/components/TableToolbar'
@@ -253,12 +254,16 @@ export function FilesPage() {
       {
         key: 'stage',
         header: 'שלב',
-        width: '0.9fr',
+        width: '1.2fr',
         sortKey: 'stage',
         render: (f) => (
-          <Badge tone={labelOf(FILE_STAGE, f.stage).tone}>
-            {labelOf(FILE_STAGE, f.stage).label}
-          </Badge>
+          <StagePicker
+            fileId={f.id}
+            fileNumber={f.fileNumber}
+            stage={f.stage}
+            moving={movingId === f.id}
+            onMove={(id, to) => move.mutate({ id, stage: to })}
+          />
         ),
       },
       {
@@ -496,7 +501,7 @@ export function FilesPage() {
               rows={data.items}
               toneOf={(f) => labelOf(FILE_STATUS, f.status).tone}
               linkTo={(f) => `/files/${f.id}`}
-              minWidth={1100}
+              minWidth={1160}
               sort={listing.sort}
               onSort={listing.setSort}
               selected={selected}

@@ -6,7 +6,7 @@ import { api } from '@/api/client'
 import { livePoll } from '@/lib/livePolling'
 import { cn } from '@/lib/cn'
 import { date, initials, money, relative } from '@/lib/format'
-import { AVAILABILITY, CLIENT_PRIORITY, CONTACT_METHOD, FILE_STAGE, FILE_STATUS, labelOf, LEAD_STATUS } from '@/lib/labels'
+import { AVAILABILITY, CLIENT_PRIORITY, CONTACT_METHOD, FILE_STAGE, FILE_STATUS, labelOf, LEAD_STATUS, type Stage } from '@/lib/labels'
 import type { Client, CustomField } from '@/types'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Badge, RAILS } from '@/components/ui/Badge'
@@ -15,6 +15,7 @@ import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { InternalChat } from '@/components/InternalChat'
 import { ActivityFeed } from '@/components/ActivityFeed'
 import { EditClientModal } from '@/components/EditClientModal'
+import { StagePicker } from '@/components/StagePicker'
 import { NewFileModal } from '@/components/NewFileModal'
 import { Button } from '@/components/ui/Button'
 import { Menu, MenuItem } from '@/components/ui/Menu'
@@ -49,6 +50,18 @@ export function ClientDetailPage() {
 
   // The files go with the client, so the request says so out loud — the server
   // refuses a client who still has files unless it is asked in those terms.
+  const moveFileStage = useMutation({
+    mutationFn: ({ fileId, stage }: { fileId: string; stage: Stage }) =>
+      api.patch(`/files/${fileId}`, { stage }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client', id] })
+      queryClient.invalidateQueries({ queryKey: ['files'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      notify('התיק הועבר')
+    },
+    onError: (e: Error) => notify('העברת התיק נכשלה', { tone: 'error', detail: e.message }),
+  })
+
   const removeClient = useMutation({
     mutationFn: () => api.delete(`/clients/${id}?withFiles=1`),
     onSuccess: () => {
@@ -377,9 +390,13 @@ export function ClientDetailPage() {
                       >
                         {money(file.requestedAmount)}
                       </span>
-                      <Badge tone={labelOf(FILE_STAGE, file.stage).tone}>
-                        {labelOf(FILE_STAGE, file.stage).label}
-                      </Badge>
+                      <StagePicker
+                        fileId={file.id}
+                        fileNumber={file.fileNumber}
+                        stage={file.stage}
+                        moving={moveFileStage.isPending && moveFileStage.variables?.fileId === file.id}
+                        onMove={(fileId, stage) => moveFileStage.mutate({ fileId, stage })}
+                      />
                       <span className="hidden w-24 shrink-0 whitespace-nowrap text-[13px] text-ink-subtle md:block">
                         {relative(file.updatedAt)}
                       </span>
