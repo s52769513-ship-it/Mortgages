@@ -206,7 +206,9 @@ model Client {
   id               String        @id @default(cuid())
   leadStatus       LeadStatus    @default(NEW)
   fullName         String
-  phone            String
+  /// Optional: a list imported from a spreadsheet often has names without
+  /// numbers, and refusing those rows would lose the names too.
+  phone            String?
   email            String?
   referralSource   String?
   referralDate     DateTime?

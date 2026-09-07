@@ -132,8 +132,9 @@ export function ImportClientsModal({ open, onClose }: { open: boolean; onClose: 
     [mappings],
   )
 
+  // Only the name is needed. A list kept for years often has names without
+  // numbers, and refusing those rows would throw the names away with them.
   const mappedName = mappings.some((m) => m.kind === 'target' && m.key === 'fullName')
-  const mappedPhone = mappings.some((m) => m.kind === 'target' && m.key === 'phone')
 
   /**
    * What the sheet looks like once mapped: how many rows can be saved, and
@@ -141,7 +142,7 @@ export function ImportClientsModal({ open, onClose }: { open: boolean; onClose: 
    * see three bad rows will go and fix them.
    */
   const review = useMemo(() => {
-    if (!sheet || !mappedName || !mappedPhone) return null
+    if (!sheet || !mappedName) return null
 
     const nameCol = mappings.findIndex((m) => m.kind === 'target' && m.key === 'fullName')
     const phoneCol = mappings.findIndex((m) => m.kind === 'target' && m.key === 'phone')
@@ -150,17 +151,26 @@ export function ImportClientsModal({ open, onClose }: { open: boolean; onClose: 
 
     const incomplete: number[] = []
     const repeated: number[] = []
+    /** Rows with a name and no number: imported, but nothing to match on. */
+    const noPhone: number[] = []
     const phones = new Set<string>()
     let ready = 0
 
     sheet.rows.forEach((row, i) => {
       const name = convert(row[nameCol], nameTarget)
-      const phone = convert(row[phoneCol], phoneTarget)
-      if (typeof name !== 'string' || name.trim().length < 2 || typeof phone !== 'string' || phone.replace(/\D/g, '').length < 6) {
+      if (typeof name !== 'string' || name.trim().length < 2) {
         incomplete.push(i)
         return
       }
-      const digits = phone.replace(/\D/g, '')
+
+      const phone = phoneCol === -1 ? undefined : convert(row[phoneCol], phoneTarget)
+      const digits = typeof phone === 'string' ? phone.replace(/\D/g, '') : ''
+
+      if (!digits) {
+        noPhone.push(i)
+        ready++
+        return
+      }
       if (phones.has(digits)) {
         repeated.push(i)
         return
@@ -169,8 +179,8 @@ export function ImportClientsModal({ open, onClose }: { open: boolean; onClose: 
       ready++
     })
 
-    return { ready, incomplete, repeated }
-  }, [sheet, mappings, mappedName, mappedPhone])
+    return { ready, incomplete, repeated, noPhone }
+  }, [sheet, mappings, mappedName])
 
   /**
    * Builds the payload for one sheet row. The mapping is passed in rather
@@ -333,7 +343,7 @@ export function ImportClientsModal({ open, onClose }: { open: boolean; onClose: 
           />
           <ul className="space-y-1.5 text-[13px] leading-relaxed text-ink-muted">
             <li>· השורה הראשונה בגיליון היא שמות העמודות.</li>
-            <li>· שם וטלפון הם השדות ההכרחיים; כל השאר לא חובה.</li>
+            <li>· שם מלא הוא השדה היחיד ההכרחי; כל השאר לא חובה, טלפון כולל.</li>
             <li>· עמודה שאין לה שדה מתאים אפשר להפוך לשדה חדש במערכת.</li>
             <li>· לקוח שהטלפון שלו כבר קיים ידולג, אלא אם תבחר אחרת.</li>
           </ul>
@@ -483,12 +493,10 @@ export function ImportClientsModal({ open, onClose }: { open: boolean; onClose: 
             </table>
           </div>
 
-          {(!mappedName || !mappedPhone) && (
+          {!mappedName && (
             <p className="flex items-center gap-2 text-[13.5px] text-urgent-ink">
               <TriangleAlert className="size-4 shrink-0" />
-              יש לבחור עמודה עבור {!mappedName ? 'שם מלא' : ''}
-              {!mappedName && !mappedPhone ? ' ועבור ' : ''}
-              {!mappedPhone ? 'טלפון' : ''}.
+              יש לבחור עמודה עבור שם מלא.
             </p>
           )}
 
@@ -500,9 +508,15 @@ export function ImportClientsModal({ open, onClose }: { open: boolean; onClose: 
               </p>
               {review.incomplete.length > 0 && (
                 <p className="text-ink-muted">
-                  {review.incomplete.length} שורות ידולגו — חסר בהן שם או טלפון (שורות{' '}
+                  {review.incomplete.length} שורות ידולגו — חסר בהן שם (שורות{' '}
                   {review.incomplete.slice(0, 6).map((i) => i + 2).join(', ')}
                   {review.incomplete.length > 6 ? ' ועוד' : ''} בקובץ).
+                </p>
+              )}
+              {review.noPhone.length > 0 && (
+                <p className="text-ink-muted">
+                  {review.noPhone.length} שורות בלי טלפון — הן ייובאו, אבל אי אפשר לזהות
+                  לפיהן כפילות מול מה שכבר קיים.
                 </p>
               )}
               {review.repeated.length > 0 && (

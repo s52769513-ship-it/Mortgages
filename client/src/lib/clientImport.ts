@@ -25,7 +25,7 @@ export type Target = {
 
 export const CLIENT_TARGETS: Target[] = [
   { key: 'fullName', label: 'שם מלא', kind: 'text', required: true, aliases: ['שם', 'שם הלקוח', 'שם לקוח', 'לקוח', 'name', 'full name', 'client'] },
-  { key: 'phone', label: 'טלפון', kind: 'phone', required: true, aliases: ['נייד', 'טלפון נייד', 'מספר טלפון', 'phone', 'mobile', 'tel'] },
+  { key: 'phone', label: 'טלפון', kind: 'phone', aliases: ['נייד', 'טלפון נייד', 'מספר טלפון', 'phone', 'mobile', 'tel'] },
   { key: 'email', label: 'אימייל', kind: 'email', aliases: ['מייל', 'דואר אלקטרוני', 'email', 'mail', 'e-mail'] },
   { key: 'partnerName', label: 'שם בן/בת הזוג', kind: 'text', aliases: ['בן זוג', 'בת זוג', 'שם 2', 'לווה נוסף', 'partner'] },
   { key: 'partnerPhone', label: 'טלפון בן/בת הזוג', kind: 'phone', aliases: ['טלפון 2', 'נייד 2', 'טלפון בן זוג'] },

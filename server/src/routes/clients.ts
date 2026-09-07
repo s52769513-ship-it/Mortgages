@@ -18,7 +18,15 @@ const clientSchema = z.object({
   fullName: z
     .string({ required_error: 'חסר שם מלא' })
     .min(2, 'שם מלא חייב להכיל לפחות 2 תווים'),
-  phone: z.string({ required_error: 'חסר מספר טלפון' }).min(6, 'מספר טלפון לא תקין'),
+  // Not required. The intake form asks for a number and always will, but a
+  // list being imported from somewhere older may simply not have one, and a
+  // name without a number is still worth keeping.
+  phone: z
+    .string()
+    .trim()
+    .min(6, 'מספר טלפון לא תקין')
+    .nullish()
+    .or(z.literal('')),
   email: z.string().email('כתובת אימייל לא תקינה').nullish().or(z.literal('')),
   leadStatus: z.nativeEnum(LeadStatus).optional(),
   referralSource: z.string().nullish(),
@@ -49,7 +57,7 @@ const clientSchema = z.object({
 })
 
 /** Two numbers are the same number whatever punctuation was typed around them. */
-const digitsOf = (phone: string) => phone.replace(/\D/g, '')
+const digitsOf = (phone: string | null | undefined) => (phone ?? '').replace(/\D/g, '')
 
 async function customFieldDefs() {
   return prisma.customField.findMany({
@@ -132,6 +140,7 @@ clientsRouter.post(
       data: {
         ...rest,
         email: data.email || null,
+        phone: data.phone || null,
         ...(custom ? { custom: normaliseCustom(custom, await customFieldDefs()) } : {}),
       },
     })
@@ -163,6 +172,7 @@ clientsRouter.patch(
       data: {
         ...rest,
         ...(data.email === '' ? { email: null } : {}),
+        ...(data.phone === '' ? { phone: null } : {}),
         ...(nextCustom ? { custom: nextCustom } : {}),
       },
     })
@@ -228,6 +238,7 @@ clientsRouter.post(
     const existing = await prisma.client.findMany({ select: { phone: true } })
     const seen = new Set(existing.map((c) => digitsOf(c.phone)).filter(Boolean))
 
+
     const created: { index: number; id: string; fullName: string }[] = []
     const skipped: { index: number; reason: string }[] = []
     const failed: { index: number; message: string }[] = []
@@ -254,6 +265,7 @@ clientsRouter.post(
           data: {
             ...rest,
             email: parsed.data.email || null,
+            phone: parsed.data.phone || null,
             ...(custom ? { custom: normaliseCustom(custom, fields) } : {}),
           },
         })

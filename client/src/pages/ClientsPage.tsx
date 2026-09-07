@@ -76,7 +76,7 @@ export function ClientsPage() {
       width: '0.9fr',
       render: (c) => (
         <span className="numeric block truncate text-[14px] text-ink-muted" dir="ltr">
-          {c.phone}
+          {c.phone || '—'}
         </span>
       ),
     },

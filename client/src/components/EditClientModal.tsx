@@ -22,7 +22,7 @@ export function EditClientModal({
 
   const [form, setForm] = useState({
     fullName: client.fullName,
-    phone: client.phone,
+    phone: client.phone ?? '',
     email: client.email ?? '',
     leadStatus: client.leadStatus,
     referralSource: client.referralSource ?? '',
@@ -123,7 +123,7 @@ export function EditClientModal({
           />
           <Input
             label="טלפון"
-            required
+            hint="לא חובה — לקוח שיובא מרשימה ישנה עשוי להיות בלי מספר"
             dir="ltr"
             className="numeric"
             value={form.phone}

@@ -103,10 +103,12 @@ export function ClientDetailPage() {
                 {client.fullName}
               </h1>
               <div className="mt-1.5 flex flex-wrap items-center gap-5 text-[14px] text-ink-muted">
-                <span className="flex items-center gap-1.5" dir="ltr">
-                  <Phone className="size-3.5" />
-                  <span className="numeric">{client.phone}</span>
-                </span>
+                {client.phone && (
+                  <span className="flex items-center gap-1.5" dir="ltr">
+                    <Phone className="size-3.5" />
+                    <span className="numeric">{client.phone}</span>
+                  </span>
+                )}
                 {client.email && (
                   <span className="flex items-center gap-1.5" dir="ltr">
                     <Mail className="size-3.5" />

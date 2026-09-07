@@ -18,7 +18,8 @@ export type Employee = User & { phone?: string | null; team?: string | null; act
 export type Client = {
   id: string
   fullName: string
-  phone: string
+  /** Absent on a client imported from a list that had none. */
+  phone: string | null
   email: string | null
   leadStatus: string
   referralSource: string | null
