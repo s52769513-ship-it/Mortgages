@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ListChecks } from 'lucide-react'
+import { ListChecks, Plus } from 'lucide-react'
 import { api, qs } from '@/api/client'
 import { cn } from '@/lib/cn'
 import { date, isOverdue, relative, time } from '@/lib/format'
@@ -23,6 +23,7 @@ import {
   TableFooter,
 } from '@/components/DataTable'
 import { TaskOverlay } from '@/components/TaskOverlay'
+import { NewTaskModal } from '@/components/NewTaskModal'
 
 type Scope = 'all' | 'mine' | 'overdue'
 
@@ -37,6 +38,7 @@ export function TasksPage() {
   const [search, setSearch] = useState('')
   const [priority, setPriority] = useState('')
   const [editing, setEditing] = useState<Task | null>(null)
+  const [creating, setCreating] = useState(false)
 
   const status = params.get('status') ?? ''
   const scope: Scope = params.get('overdue') === '1' ? 'overdue' : (params.get('scope') as Scope) || 'all'
@@ -192,8 +194,14 @@ export function TasksPage() {
               </p>
             )}
           </div>
-          <div className="w-64">
-            <SegmentedControl value={scope} onChange={setScope} options={SCOPES} />
+          <div className="flex items-center gap-4">
+            <div className="w-64">
+              <SegmentedControl value={scope} onChange={setScope} options={SCOPES} />
+            </div>
+            <Button size="sm" onClick={() => setCreating(true)}>
+              <Plus className="size-4" />
+              משימה חדשה
+            </Button>
           </div>
         </div>
 
@@ -249,10 +257,10 @@ export function TasksPage() {
                 ? 'כל המשימות הפתוחות עדיין בתוך התאריך שנקבע להן.'
                 : filtered
                   ? 'הסינון הנוכחי לא החזיר תוצאות. אפשר לנקות אותו ולראות את כל המשימות.'
-                  : 'משימות נפתחות מתוך דף התיק, ומרוכזות כאן על פני כל התיקים.'
+                  : 'משימה נפתחת מתוך דף התיק, או ישירות מכאן.'
             }
             action={
-              filtered && (
+              filtered ? (
                 <Button
                   variant="secondary"
                   onClick={() => {
@@ -263,6 +271,13 @@ export function TasksPage() {
                 >
                   נקה מסננים
                 </Button>
+              ) : (
+                scope !== 'overdue' && (
+                  <Button onClick={() => setCreating(true)}>
+                    <Plus className="size-4" />
+                    משימה חדשה
+                  </Button>
+                )
               )
             }
           />
@@ -294,6 +309,7 @@ export function TasksPage() {
       </Card>
 
       <TaskOverlay task={editing} open={Boolean(editing)} onClose={() => setEditing(null)} />
+      <NewTaskModal open={creating} onClose={() => setCreating(false)} />
     </>
   )
 }

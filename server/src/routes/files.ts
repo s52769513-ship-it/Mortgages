@@ -109,6 +109,41 @@ filesRouter.get(
   }),
 )
 
+/**
+ * Type-ahead source for picking a file from outside its own page — the tasks
+ * list, mainly, where a task is opened without a file already in context.
+ * Placed before "/:id" so a literal path segment is never swallowed as one.
+ */
+filesRouter.get(
+  '/lookup',
+  handler(async (req, res) => {
+    const q = (req.query.q as string | undefined)?.trim()
+
+    const files = await prisma.mortgageFile.findMany({
+      where: q
+        ? {
+            OR: [
+              { fileNumber: { contains: q, mode: 'insensitive' as const } },
+              { propertyAddress: { contains: q, mode: 'insensitive' as const } },
+              { client: { fullName: { contains: q, mode: 'insensitive' as const } } },
+            ],
+          }
+        : undefined,
+      select: { id: true, fileNumber: true, propertyAddress: true, client: { select: { fullName: true } } },
+      orderBy: { updatedAt: 'desc' },
+      take: 30,
+    })
+
+    res.json(
+      files.map((f) => ({
+        id: f.id,
+        label: `${f.fileNumber} · ${f.client.fullName}`,
+        hint: f.propertyAddress ?? undefined,
+      })),
+    )
+  }),
+)
+
 filesRouter.get(
   '/:id',
   handler(async (req, res) => {

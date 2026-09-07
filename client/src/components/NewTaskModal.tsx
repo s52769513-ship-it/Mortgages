@@ -10,6 +10,7 @@ import {
 } from '@/lib/labels'
 import type { Employee, Task } from '@/types'
 import { Button } from '@/components/ui/Button'
+import { Combobox } from '@/components/ui/Combobox'
 import { Input, SegmentedControl, Select, Textarea } from '@/components/ui/Field'
 import { Modal } from '@/components/ui/Modal'
 import { useToast } from '@/components/ui/Toast'
@@ -32,7 +33,10 @@ export function NewTaskModal({
   open,
   onClose,
 }: {
-  fileId: string
+  /** Fixed to a file when opened from that file's own page. Omit to let the
+   *  form ask which file the task belongs to — from the tasks list, a task
+   *  cannot exist without one, but nothing on screen already says which. */
+  fileId?: string
   fileNumber?: string
   defaultStage?: string | null
   open: boolean
@@ -41,6 +45,7 @@ export function NewTaskModal({
   const { notify } = useToast()
   const queryClient = useQueryClient()
   const [form, setForm] = useState({ ...BLANK, stage: defaultStage ?? '' })
+  const [file, setFile] = useState<{ id: string | null; text: string }>({ id: null, text: '' })
   const [touched, setTouched] = useState(false)
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
@@ -52,10 +57,14 @@ export function NewTaskModal({
     enabled: open,
   })
 
+  // When opened without a file already in context, the picked one supplies
+  // it; when opened from a file's own page, that file is the only option.
+  const targetFileId = fileId ?? file.id
+
   const create = useMutation({
     mutationFn: () =>
       api.post<Task>('/tasks', {
-        fileId,
+        fileId: targetFileId,
         title: form.title.trim(),
         stage: form.stage || null,
         ownerId: form.ownerId || null,
@@ -65,12 +74,13 @@ export function NewTaskModal({
         waitingOn: form.waitingOn.trim() || null,
         description: form.description.trim() || null,
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['file', fileId] })
+    onSuccess: (task) => {
+      queryClient.invalidateQueries({ queryKey: ['file', task.fileId] })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       notify('המשימה נוצרה')
       setForm({ ...BLANK, stage: defaultStage ?? '' })
+      setFile({ id: null, text: '' })
       setTouched(false)
       onClose()
     },
@@ -79,12 +89,13 @@ export function NewTaskModal({
 
   const waiting = isWaitingStatus(form.status)
   const missingTitle = form.title.trim().length < 2
+  const missingFile = !fileId && !file.id
   const missingWaitingOn = waiting && !form.waitingOn.trim()
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     setTouched(true)
-    if (missingTitle || missingWaitingOn) return
+    if (missingTitle || missingFile || missingWaitingOn) return
     create.mutate()
   }
 
@@ -108,6 +119,18 @@ export function NewTaskModal({
       }
     >
       <form id="new-task" onSubmit={submit} className="space-y-5">
+        {!fileId && (
+          <Combobox
+            label="תיק"
+            required
+            endpoint="/files/lookup"
+            placeholder="הקלד מספר תיק, כתובת או שם לקוח…"
+            value={file}
+            onChange={setFile}
+            error={touched && missingFile ? 'יש לבחור תיק מהרשימה' : undefined}
+          />
+        )}
+
         <Input
           label="שם המשימה"
           required
