@@ -88,7 +88,15 @@ export function TasksPage() {
       sortKey: 'title',
       render: (t) => (
         <>
-          <span className="block truncate text-[15px] font-medium text-ink">{t.title}</span>
+          <span className="flex items-baseline gap-1.5">
+            {/* Which task this is on its own file — a number worth having
+                for "task 2 on that file", kept with the title it names
+                rather than crowded onto the file's own identity below. */}
+            <span className="numeric shrink-0 text-[12px] text-ink-subtle" dir="ltr">
+              #{t.seq}
+            </span>
+            <span className="truncate text-[15px] font-medium text-ink">{t.title}</span>
+          </span>
           {t.waitingOn && (
             <span className="block truncate text-[13px] text-ink-muted">
               ממתין ל{t.waitingOn}
@@ -105,7 +113,6 @@ export function TasksPage() {
         <>
           <span className="numeric text-right block truncate text-[13.5px] text-steel-700" dir="ltr">
             {t.file?.fileNumber}
-            <span className="text-ink-subtle"> · {t.seq}</span>
           </span>
           <span className="block truncate text-[13px] text-ink-muted">
             {t.file?.client.fullName}
