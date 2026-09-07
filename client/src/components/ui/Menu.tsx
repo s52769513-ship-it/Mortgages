@@ -12,6 +12,7 @@ export function Menu({
   align = 'start',
   width = 264,
   className,
+  triggerClassName,
 }: {
   label: string
   trigger: (props: { open: boolean }) => ReactNode
@@ -19,6 +20,8 @@ export function Menu({
   align?: 'start' | 'end'
   width?: number
   className?: string
+  /** For a trigger that has to fill its container — a table cell, say. */
+  triggerClassName?: string
 }) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
@@ -48,6 +51,7 @@ export function Menu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label}
+        className={triggerClassName}
         onClick={() => setOpen((v) => !v)}
       >
         {trigger({ open })}

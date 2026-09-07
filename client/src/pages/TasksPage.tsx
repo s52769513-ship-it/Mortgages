@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ListChecks, Plus } from 'lucide-react'
 import { api, qs } from '@/api/client'
 import { livePoll } from '@/lib/livePolling'
 import { cn } from '@/lib/cn'
 import { date, isOverdue, relative, time } from '@/lib/format'
-import { labelOf, options, TASK_PRIORITY, TASK_STATUS } from '@/lib/labels'
-import type { Task } from '@/types'
+import { isWaitingStatus, labelOf, options, TASK_PRIORITY, TASK_STATUS } from '@/lib/labels'
+import type { Employee, Task } from '@/types'
 import { Card } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { RowSelect, type RowOption } from '@/components/RowSelect'
+import { useToast } from '@/components/ui/Toast'
 import { SegmentedControl } from '@/components/ui/Field'
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/States'
 import { useListing } from '@/lib/useListing'
@@ -28,6 +29,19 @@ import { NewTaskModal } from '@/components/NewTaskModal'
 
 type Scope = 'all' | 'mine' | 'overdue'
 
+/** Built once — the same list for every row, in the order the office reads them. */
+const STATUS_OPTIONS: RowOption[] = Object.entries(TASK_STATUS).map(([value, e]) => ({
+  value,
+  label: e.label,
+  tone: e.tone,
+}))
+
+const PRIORITY_OPTIONS: RowOption[] = Object.entries(TASK_PRIORITY).map(([value, e]) => ({
+  value,
+  label: e.label,
+  tone: e.tone,
+}))
+
 const SCOPES: { value: Scope; label: string }[] = [
   { value: 'all', label: 'הכל' },
   { value: 'mine', label: 'שלי' },
@@ -40,6 +54,9 @@ export function TasksPage() {
   const [priority, setPriority] = useState('')
   const [editing, setEditing] = useState<Task | null>(null)
   const [creating, setCreating] = useState(false)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const { notify } = useToast()
 
   const status = params.get('status') ?? ''
   const scope: Scope = params.get('overdue') === '1' ? 'overdue' : (params.get('scope') as Scope) || 'all'
@@ -77,6 +94,37 @@ export function TasksPage() {
       ),
     ...livePoll,
   })
+
+  const { data: employees } = useQuery({
+    queryKey: ['employees'],
+    queryFn: () => api.get<Employee[]>('/employees'),
+  })
+
+  /**
+   * One field of one task, written straight from its row.
+   *
+   * Every one of these is a partial PATCH on the same endpoint the record's
+   * own form uses, so a change made here is indistinguishable from one made
+   * inside — same validation, same activity entry.
+   */
+  const patch = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown>; done: string }) =>
+      api.patch(`/tasks/${id}`, body),
+    onMutate: ({ id }) => setSavingId(id),
+    onSettled: () => setSavingId(null),
+    onSuccess: (_result, { done }) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['file'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      notify('המשימה עודכנה', { detail: done })
+    },
+    onError: (e: Error) => notify('עדכון המשימה נכשל', { tone: 'error', detail: e.message }),
+  })
+
+  const ownerOptions: RowOption[] = [
+    { value: '', label: 'ללא אחראי' },
+    ...(employees ?? []).map((e) => ({ value: e.id, label: e.name })),
+  ]
 
   const filtered = Boolean(search || status || priority || scope !== 'all')
 
@@ -123,9 +171,25 @@ export function TasksPage() {
     {
       key: 'owner',
       header: 'אחראי',
-      width: '0.9fr',
+      width: '1.05fr',
       render: (t) => (
-        <span className="block truncate text-[14px] text-ink-muted">{t.owner?.name ?? '—'}</span>
+        <RowSelect
+          menuLabel={`שינוי האחראי על המשימה ${t.title}`}
+          heading="העברה לאחראי"
+          variant="text"
+          value={t.owner?.id ?? ''}
+          options={ownerOptions}
+          pending={savingId === t.id}
+          onSelect={(ownerId) =>
+            patch.mutate({
+              id: t.id,
+              body: { ownerId: ownerId || null },
+              done: ownerId
+                ? `אחראי: ${ownerOptions.find((o) => o.value === ownerId)?.label}`
+                : 'האחראי הוסר',
+            })
+          }
+        />
       ),
     },
     {
@@ -134,29 +198,58 @@ export function TasksPage() {
       width: '1fr',
       sortKey: 'status',
       render: (t) => (
-        <Badge tone={labelOf(TASK_STATUS, t.status).tone}>
-          {labelOf(TASK_STATUS, t.status).label}
-        </Badge>
+        <RowSelect
+          menuLabel={`שינוי סטטוס המשימה ${t.title}`}
+          heading="שינוי סטטוס"
+          value={t.status}
+          options={STATUS_OPTIONS}
+          pending={savingId === t.id}
+          onSelect={(next) => {
+            // A waiting status has to name who we are waiting for. If the
+            // task does not already say, the row cannot answer that — the
+            // record can, so open it rather than fail the write.
+            if (isWaitingStatus(next) && !t.waitingOn) {
+              setEditing(t)
+              notify('צריך לציין את מי ממתינים', { detail: 'מלא את השדה "ממתין ל" ושמור' })
+              return
+            }
+            patch.mutate({
+              id: t.id,
+              body: { status: next },
+              done: `סטטוס: ${labelOf(TASK_STATUS, next).label}`,
+            })
+          }}
+        />
       ),
     },
     {
       key: 'priority',
       header: 'עדיפות',
-      width: '0.7fr',
+      width: '0.85fr',
       sortKey: 'priority',
       render: (t) => (
-        <span
+        <RowSelect
+          menuLabel={`שינוי עדיפות המשימה ${t.title}`}
+          heading="שינוי עדיפות"
+          variant="text"
+          value={t.priority}
+          options={PRIORITY_OPTIONS}
+          pending={savingId === t.id}
           className={cn(
-            'text-[13.5px]',
             t.priority === 'URGENT'
               ? 'font-medium text-urgent-ink'
               : t.priority === 'HIGH'
                 ? 'text-wait-ink'
                 : 'text-ink-muted',
           )}
-        >
-          {labelOf(TASK_PRIORITY, t.priority).label}
-        </span>
+          onSelect={(next) =>
+            patch.mutate({
+              id: t.id,
+              body: { priority: next },
+              done: `עדיפות: ${labelOf(TASK_PRIORITY, next).label}`,
+            })
+          }
+        />
       ),
     },
     {
