@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ListChecks, Plus } from 'lucide-react'
 import { api, qs } from '@/api/client'
+import { livePoll } from '@/lib/livePolling'
 import { cn } from '@/lib/cn'
 import { date, isOverdue, relative, time } from '@/lib/format'
 import { labelOf, options, TASK_PRIORITY, TASK_STATUS } from '@/lib/labels'
@@ -74,6 +75,7 @@ export function TasksPage() {
           ...listing.params,
         })}`,
       ),
+    ...livePoll,
   })
 
   const filtered = Boolean(search || status || priority || scope !== 'all')

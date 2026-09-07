@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FolderOpen, KanbanSquare, Plus, Rows3, Trash2 } from 'lucide-react'
 import { api, qs } from '@/api/client'
+import { livePoll } from '@/lib/livePolling'
 import { cn } from '@/lib/cn'
 import { date, money, relative } from '@/lib/format'
 import { FILE_STAGE, FILE_STATUS, labelOf, options, URGENCY, type Stage } from '@/lib/labels'
@@ -92,6 +93,7 @@ export function FilesPage() {
           ...(mode === 'board' ? { take: BOARD_LIMIT, skip: 0 } : listing.params),
         })}`,
       ),
+    ...livePoll,
   })
 
   // ---- saved views -------------------------------------------------------

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FolderOpen, Mail, MoreHorizontal, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
 import { api } from '@/api/client'
+import { livePoll } from '@/lib/livePolling'
 import { cn } from '@/lib/cn'
 import { date, initials, money, relative } from '@/lib/format'
 import { AVAILABILITY, CLIENT_PRIORITY, CONTACT_METHOD, FILE_STAGE, FILE_STATUS, labelOf, LEAD_STATUS } from '@/lib/labels'
@@ -38,6 +39,7 @@ export function ClientDetailPage() {
   } = useQuery({
     queryKey: ['client', id],
     queryFn: () => api.get<Client>(`/clients/${id}`),
+    ...livePoll,
   })
 
   const { data: fields } = useQuery({

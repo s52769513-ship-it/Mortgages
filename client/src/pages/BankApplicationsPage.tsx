@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Building2, Pencil } from 'lucide-react'
 import { api, qs } from '@/api/client'
+import { livePoll } from '@/lib/livePolling'
 import { cn } from '@/lib/cn'
 import { date, money, percent } from '@/lib/format'
 import { BANK_APP_STATUS, labelOf, options } from '@/lib/labels'
@@ -51,6 +52,7 @@ export function BankApplicationsPage() {
       api.get<{ items: BankApplication[]; total: number }>(
         `/bank-applications${qs({ q: search, status, ...listing.params })}`,
       ),
+    ...livePoll,
   })
 
   const filtered = Boolean(search || status)

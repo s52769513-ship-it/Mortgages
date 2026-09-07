@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileText } from 'lucide-react'
 import { api, qs } from '@/api/client'
+import { livePoll } from '@/lib/livePolling'
 import { cn } from '@/lib/cn'
 import { date } from '@/lib/format'
 import { DOCUMENT_STATUS, labelOf, options } from '@/lib/labels'
@@ -87,6 +88,7 @@ export function DocumentsPage() {
           ...listing.params,
         })}`,
       ),
+    ...livePoll,
   })
 
   const filtered = Boolean(search || status || scope !== 'all')

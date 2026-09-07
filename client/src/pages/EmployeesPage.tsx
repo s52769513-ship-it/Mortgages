@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Users } from 'lucide-react'
 import { api } from '@/api/client'
+import { livePoll } from '@/lib/livePolling'
 import { useAuth } from '@/lib/auth'
 import { date } from '@/lib/format'
 import { labelOf, options, ROLE } from '@/lib/labels'
@@ -158,6 +159,7 @@ export function EmployeesPage() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['employees', 'all'],
     queryFn: () => api.get<Row[]>('/employees?includeInactive=1'),
+    ...livePoll,
   })
 
   const setActive = useMutation({

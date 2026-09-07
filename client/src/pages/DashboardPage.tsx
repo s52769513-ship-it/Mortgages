@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { CheckCircle2, ShieldCheck, AlertTriangle, Clock, FolderX } from 'lucide-react'
 import { api } from '@/api/client'
+import { livePoll } from '@/lib/livePolling'
 import { cn } from '@/lib/cn'
 import { isOverdue, relative, time } from '@/lib/format'
 import { labelOf, TASK_STATUS } from '@/lib/labels'
@@ -91,6 +92,7 @@ export function DashboardPage() {
     queryKey: ['dashboard'],
     queryFn: () => api.get<Dashboard>('/dashboard'),
     refetchOnMount: 'always',
+    ...livePoll,
   })
 
   if (error) {

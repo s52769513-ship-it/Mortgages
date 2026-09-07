@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { MoreHorizontal, Plus, SlidersHorizontal, Upload, Users } from 'lucide-react'
 import { api, qs } from '@/api/client'
+import { livePoll } from '@/lib/livePolling'
 import { relative } from '@/lib/format'
 import { labelOf, LEAD_STATUS, options } from '@/lib/labels'
 import type { Client } from '@/types'
@@ -51,6 +52,7 @@ export function ClientsPage() {
       api.get<{ items: Client[]; total: number }>(
         `/clients${qs({ q: search, status, ...listing.params })}`,
       ),
+    ...livePoll,
   })
 
   const filtered = Boolean(search || status)

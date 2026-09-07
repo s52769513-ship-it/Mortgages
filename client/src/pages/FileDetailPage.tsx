@@ -17,6 +17,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { api } from '@/api/client'
+import { livePoll } from '@/lib/livePolling'
 import { cn } from '@/lib/cn'
 import { date, isOverdue, money, percent, relative, time } from '@/lib/format'
 import {
@@ -90,6 +91,7 @@ export function FileDetailPage() {
   } = useQuery({
     queryKey: ['file', id],
     queryFn: () => api.get<MortgageFile>(`/files/${id}`),
+    ...livePoll,
   })
 
   // Clicking a step filters, which is cheap and reversible. Actually moving the

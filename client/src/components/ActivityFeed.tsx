@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { History } from 'lucide-react'
 import { api } from '@/api/client'
+import { livePoll } from '@/lib/livePolling'
 import { dateTime, relative } from '@/lib/format'
 import type { ActivityEntry } from '@/types'
 import { EmptyState, Skeleton } from '@/components/ui/States'
@@ -16,6 +17,7 @@ export function ActivityFeed({
   const { data, isLoading } = useQuery({
     queryKey: ['activity', entityType, entityId],
     queryFn: () => api.get<ActivityEntry[]>(`/activity/${entityType}/${entityId}`),
+    ...livePoll,
   })
 
   if (isLoading) {
