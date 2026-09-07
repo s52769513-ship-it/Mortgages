@@ -17,6 +17,6 @@
     "import:banks": "npm run import:banks --workspace=server"
   },
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   }
 }
