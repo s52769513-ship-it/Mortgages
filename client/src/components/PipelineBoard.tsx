@@ -36,6 +36,7 @@ function FileCard({
 }) {
   const status = labelOf(FILE_STATUS, file.status)
   const urgency = labelOf(URGENCY, file.urgency)
+  const urgent = file.urgency === 'HIGH' || file.urgency === 'CRITICAL'
   const overdue = file.nextActionDate && new Date(file.nextActionDate) < new Date()
 
   return (
@@ -46,15 +47,15 @@ function FileCard({
         e.dataTransfer.effectAllowed = 'move'
       }}
       className={cn(
-        'group relative rounded-lg border border-hair border-s-4 bg-surface p-2.5',
+        'group relative rounded-lg border border-hair border-s-4 bg-surface px-2 py-1.5',
         'shadow-surface transition-shadow duration-micro ease-standard hover:shadow-raised',
         moving ? 'cursor-progress opacity-55' : 'cursor-grab active:cursor-grabbing',
         RAILS[statusTone],
       )}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <GripVertical
-          className="size-4 shrink-0 text-ink-subtle opacity-0 transition-opacity duration-micro group-hover:opacity-100"
+          className="size-3.5 shrink-0 text-ink-subtle opacity-0 transition-opacity duration-micro group-hover:opacity-100"
           aria-hidden
         />
         {/* The client's name and the file number both open the same record —
@@ -65,10 +66,18 @@ function FileCard({
         <Link
           to={`/files/${file.id}`}
           draggable={false}
-          className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink hover:text-steel-700"
+          title={file.propertyAddress || file.fileNumber}
+          className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink hover:text-steel-700"
         >
           {file.propertyAddress || file.fileNumber}
         </Link>
+
+        {/* The status rides on the title's own line rather than a line of its
+            own: it is two words at most, and a column that shows twice as
+            many cards is the whole point of this view. */}
+        <Badge tone={statusTone} className="shrink-0 px-1.5 py-0 text-[10.5px]">
+          {status.label}
+        </Badge>
 
         <Menu
           label={`העברת התיק ${file.fileNumber} לשלב אחר`}
@@ -78,12 +87,12 @@ function FileCard({
           trigger={({ open }) => (
             <span
               className={cn(
-                'flex size-7 items-center justify-center rounded-md text-ink-subtle',
+                'flex size-5 items-center justify-center rounded text-ink-subtle',
                 'transition-colors duration-micro ease-standard hover:bg-ink/[0.06] hover:text-ink',
                 open ? 'bg-ink/[0.06] text-ink' : 'opacity-0 group-hover:opacity-100',
               )}
             >
-              <MoveRight className="size-4" />
+              <MoveRight className="size-3.5" />
             </span>
           )}
         >
@@ -107,30 +116,34 @@ function FileCard({
         </Menu>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <Badge tone={statusTone} className="px-2 py-0.5 text-[11px]">
-          {status.label}
-        </Badge>
-        {(file.urgency === 'HIGH' || file.urgency === 'CRITICAL') && (
-          <Badge tone={urgency.tone} dot className="px-2 py-0.5 text-[11px]">
-            {urgency.label}
-          </Badge>
-        )}
-      </div>
-
-      <div className="mt-2 flex items-center justify-between gap-3 text-[12px]">
-        <span className="numeric text-ink-muted" dir="ltr">
-          {money(file.requestedAmount)}
-        </span>
-        {file.nextActionDate && (
-          <span
-            className={cn('numeric', overdue ? 'text-urgent-ink' : 'text-ink-subtle')}
-            dir="ltr"
-          >
-            {date(file.nextActionDate)}
-          </span>
-        )}
-      </div>
+      {/* One line for everything else, and none at all for a file that has no
+          amount, no date and nothing urgent to say — which collapses those
+          cards to a single row. */}
+      {(urgent || file.requestedAmount || file.nextActionDate) && (
+        <div className="mt-1 flex items-center gap-2 ps-5 text-[11.5px]">
+          {urgent && (
+            <Badge tone={urgency.tone} dot className="shrink-0 px-1.5 py-0 text-[10.5px]">
+              {urgency.label}
+            </Badge>
+          )}
+          {file.requestedAmount && (
+            <span className="numeric truncate text-ink-muted" dir="ltr">
+              {money(file.requestedAmount)}
+            </span>
+          )}
+          {file.nextActionDate && (
+            <span
+              className={cn(
+                'numeric ms-auto shrink-0',
+                overdue ? 'text-urgent-ink' : 'text-ink-subtle',
+              )}
+              dir="ltr"
+            >
+              {date(file.nextActionDate)}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
