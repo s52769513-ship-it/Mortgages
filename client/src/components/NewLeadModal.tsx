@@ -4,11 +4,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Mic, Square, Trash2 } from 'lucide-react'
 import { api } from '@/api/client'
 import { cn } from '@/lib/cn'
-import { AVAILABILITY, CLIENT_PRIORITY, CONTACT_METHOD, LEAD_STATUS, options } from '@/lib/labels'
+import { AVAILABILITY, CLIENT_PRIORITY, options } from '@/lib/labels'
 import { useVoiceRecorder, type Recording } from '@/lib/useVoiceRecorder'
 import type { Client } from '@/types'
 import { Button } from '@/components/ui/Button'
-import { Checkbox, Input, Select, Textarea } from '@/components/ui/Field'
+import { Input, Select, Textarea } from '@/components/ui/Field'
 import { Modal } from '@/components/ui/Modal'
 import { useToast } from '@/components/ui/Toast'
 
@@ -16,11 +16,6 @@ const BLANK = {
   fullName: '',
   phone: '',
   email: '',
-  partnerName: '',
-  partnerPhone: '',
-  leadStatus: 'NEW',
-  referralSource: '',
-  preferredContact: 'PHONE',
   availEmail: '',
   availWhatsapp: '',
   availPhone: '',
@@ -31,8 +26,6 @@ const BLANK = {
   agreedFee: '',
   priorities: [] as string[],
   prioritiesNote: '',
-  doNotContact: false,
-  introNotes: '',
 }
 
 const CHANNELS = [
@@ -115,16 +108,12 @@ export function NewLeadModal({ open, onClose }: { open: boolean; onClose: () => 
       const client = await api.post<Client>('/clients', {
         ...form,
         email: form.email.trim() || null,
-        partnerName: form.partnerName.trim() || null,
-        partnerPhone: form.partnerPhone.trim() || null,
-        referralSource: form.referralSource.trim() || null,
         declaredIncome: form.declaredIncome || null,
         declaredAssets: form.declaredAssets.trim() || null,
         declaredLiabilities: form.declaredLiabilities.trim() || null,
         targetDate: form.targetDate || null,
         agreedFee: form.agreedFee || null,
         prioritiesNote: form.prioritiesNote.trim() || null,
-        introNotes: form.introNotes.trim() || null,
         availEmail: form.availEmail || null,
         availWhatsapp: form.availWhatsapp || null,
         availPhone: form.availPhone || null,
@@ -181,7 +170,7 @@ export function NewLeadModal({ open, onClose }: { open: boolean; onClose: () => 
       }
     >
       <form id="new-lead" onSubmit={submit} className="space-y-6">
-        <Section title="הלווים">
+        <Section title="הלקוח">
           <div className="grid gap-5 sm:grid-cols-2">
             <Input
               label="שם מלא"
@@ -197,32 +186,14 @@ export function NewLeadModal({ open, onClose }: { open: boolean; onClose: () => 
               value={form.phone}
               onChange={(e) => set('phone', e.target.value)}
             />
-            <Input
-              label="שם הלווה השני"
-              hint="אם המשכנתא נלקחת בזוג"
-              value={form.partnerName}
-              onChange={(e) => set('partnerName', e.target.value)}
-            />
-            <Input
-              label="טלפון הלווה השני"
-              dir="ltr"
-              className="numeric"
-              value={form.partnerPhone}
-              onChange={(e) => set('partnerPhone', e.target.value)}
-            />
-            <Input
-              label="אימייל"
-              type="email"
-              dir="ltr"
-              value={form.email}
-              onChange={(e) => set('email', e.target.value)}
-            />
-            <Input
-              label="מקור הפנייה"
-              value={form.referralSource}
-              onChange={(e) => set('referralSource', e.target.value)}
-            />
           </div>
+          <Input
+            label="אימייל"
+            type="email"
+            dir="ltr"
+            value={form.email}
+            onChange={(e) => set('email', e.target.value)}
+          />
         </Section>
 
         <Section
@@ -306,25 +277,6 @@ export function NewLeadModal({ open, onClose }: { open: boolean; onClose: () => 
               />
             ))}
           </div>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Select
-              label="ערוץ עיקרי"
-              options={options(CONTACT_METHOD)}
-              value={form.preferredContact}
-              onChange={(e) => set('preferredContact', e.target.value)}
-            />
-            <Select
-              label="סטטוס ליד"
-              options={options(LEAD_STATUS)}
-              value={form.leadStatus}
-              onChange={(e) => set('leadStatus', e.target.value)}
-            />
-          </div>
-          <Checkbox
-            label="לא לשלוח הודעות ללקוח זה"
-            checked={form.doNotContact}
-            onChange={(e) => set('doNotContact', e.target.checked)}
-          />
         </Section>
 
         <Section title="העסקה והשכר" hint="מה שסוכם על שכר הטרחה בשיחה.">
@@ -392,14 +344,6 @@ export function NewLeadModal({ open, onClose }: { open: boolean; onClose: () => 
           )}
         </Section>
 
-        <Section title="הערות">
-          <Textarea
-            label="הערות משיחת ההיכרות"
-            rows={3}
-            value={form.introNotes}
-            onChange={(e) => set('introNotes', e.target.value)}
-          />
-        </Section>
       </form>
     </Modal>
   )
