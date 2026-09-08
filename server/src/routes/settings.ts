@@ -39,6 +39,16 @@ const SCHEMAS: Record<string, z.ZodTypeAny> = {
     // the office built the list in is kept, first occurrence wins.
     .transform((values) => Array.from(new Set(values.map((v) => v.trim())))),
 
+  // The lenders this office actually works with. Every bank picker in the app
+  // offers this list and nothing else — the banks table holds hundreds of rows
+  // once the official list is imported, and scrolling those to find the eight
+  // that matter is not a choice, it is a search.
+  banks: z
+    .array(z.string().trim().min(1).max(60))
+    .min(1, 'נדרש לפחות בנק אחד ברשימה')
+    .max(40, 'עד 40 בנקים ברשימה')
+    .transform((values) => Array.from(new Set(values.map((v) => v.trim())))),
+
   // Which of the five state colours each file status renders in — the office's
   // own remap of a fixed palette, not a free choice of colour. The whole point
   // of the four-tone system (see labels.ts) is that decorative colour never
@@ -56,6 +66,16 @@ const SCHEMAS: Record<string, z.ZodTypeAny> = {
 const DEFAULTS: Record<string, unknown> = {
   ltvPresets: [50, 60, 70, 75, 80],
   dealTypes: ['רכישת דירה', 'מחזור משכנתא', 'משכנתא לכל מטרה', 'בנייה עצמית', 'גישור'],
+  banks: [
+    'מזרחי טפחות',
+    'מרכנתיל',
+    'הפועלים',
+    'דיסקונט',
+    'ירושלים',
+    'קרדיטו',
+    'מימון ישיר',
+    'פמה',
+  ],
   fileStatusColors: {
     ACTIVE: 'busy',
     BLOCKED: 'urgent',
@@ -73,6 +93,16 @@ settingsRouter.get(
     res.json({ ...DEFAULTS, ...byKey })
   }),
 )
+
+/**
+ * One setting, for the routes that have to act on it rather than display it —
+ * falling back to the same default the settings screen shows, so a key the
+ * office never touched still behaves exactly as it looks there.
+ */
+export async function getSetting<T>(key: string): Promise<T> {
+  const row = await prisma.appSetting.findUnique({ where: { key } })
+  return (row?.value ?? DEFAULTS[key]) as T
+}
 
 settingsRouter.patch(
   '/:key',

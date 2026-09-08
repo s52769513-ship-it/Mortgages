@@ -12,9 +12,9 @@ import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
 
 /**
- * Office-wide configuration. One card per setting — today the financing
- * percentages and the deal types offered as a one-click choice on a file —
- * with room to add another card the next time something else deserves one.
+ * Office-wide configuration, one card per setting: the financing percentages
+ * and deal types offered on a file, the lenders the office actually works
+ * with, and the colour each file status renders in.
  *
  * Read-only for everyone, editable only by an admin, the same split the
  * users list uses: seeing what is configured is not a risk, changing it is.
@@ -41,7 +41,30 @@ export function SettingsPage() {
       </div>
 
       <PercentListCard isAdmin={isAdmin} isLoading={isLoading} values={data?.ltvPresets} />
-      <TextListCard isAdmin={isAdmin} isLoading={isLoading} values={data?.dealTypes} />
+      <TextListCard
+        isAdmin={isAdmin}
+        isLoading={isLoading}
+        values={data?.dealTypes}
+        settingKey="dealTypes"
+        title="סוגי עסקה להצעה מהירה"
+        subtitle="הרשימה שמוצעת לבחירה בפתיחת תיק ובעריכתו, בסדר שבו הוספתם אותה."
+        addLabel="סוג עסקה חדש"
+        placeholder="למשל החלפת בנק מלווה"
+        emptyText="אין עדיין סוגי עסקה ברשימה — הוסיפו למטה."
+        duplicateText="סוג העסקה הזה כבר ברשימה"
+      />
+      <TextListCard
+        isAdmin={isAdmin}
+        isLoading={isLoading}
+        values={data?.banks}
+        settingKey="banks"
+        title="בנקים שהמשרד עובד מולם"
+        subtitle="רק הבנקים כאן מוצעים לבחירה בפתיחת תיק ובבקשה לבנק, בסדר שבו הוספתם אותם."
+        addLabel="בנק חדש"
+        placeholder="למשל לאומי"
+        emptyText="אין עדיין בנקים ברשימה — הוסיפו למטה."
+        duplicateText="הבנק הזה כבר ברשימה"
+      />
       <StatusColorsCard isAdmin={isAdmin} isLoading={isLoading} values={data?.fileStatusColors} />
 
       {!isAdmin && (
@@ -201,15 +224,29 @@ function PercentListCard({
   )
 }
 
-/** Deal types and any future free-text list: order is the office's own, kept as entered. */
+/** Any free-text list setting: order is the office's own, kept as entered. */
 function TextListCard({
   isAdmin,
   isLoading,
   values,
+  settingKey,
+  title,
+  subtitle,
+  addLabel,
+  placeholder,
+  emptyText,
+  duplicateText,
 }: {
   isAdmin: boolean
   isLoading: boolean
   values: unknown
+  settingKey: string
+  title: string
+  subtitle: string
+  addLabel: string
+  placeholder: string
+  emptyText: string
+  duplicateText: string
 }) {
   const { notify } = useToast()
   const queryClient = useQueryClient()
@@ -218,12 +255,14 @@ function TextListCard({
 
   const save = useMutation({
     mutationFn: (next: string[]) =>
-      api.patch<{ value: string[] }>('/settings/dealTypes', { value: next }),
+      api.patch<{ value: string[] }>(`/settings/${settingKey}`, { value: next }),
     onSuccess: (result) => {
       queryClient.setQueryData(['settings'], (prev: Record<string, unknown> | undefined) => ({
         ...(prev ?? {}),
-        dealTypes: result.value,
+        [settingKey]: result.value,
       }))
+      // The bank pickers read this list, so they have to see the new one.
+      queryClient.invalidateQueries({ queryKey: ['banks'] })
     },
     onError: (e: Error) => notify('העדכון נכשל', { tone: 'error', detail: e.message }),
   })
@@ -232,7 +271,7 @@ function TextListCard({
     const value = draft.trim()
     if (!value) return
     if (types.includes(value)) {
-      notify('סוג העסקה הזה כבר ברשימה', { tone: 'error' })
+      notify(duplicateText, { tone: 'error' })
       return
     }
     setDraft('')
@@ -241,10 +280,7 @@ function TextListCard({
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader
-        title="סוגי עסקה להצעה מהירה"
-        subtitle="הרשימה שמוצעת לבחירה בפתיחת תיק ובעריכתו, בסדר שבו הוספתם אותה."
-      />
+      <CardHeader title={title} subtitle={subtitle} />
       {isLoading ? (
         <div className="p-6">
           <Skeleton className="h-9 w-2/3" />
@@ -252,7 +288,7 @@ function TextListCard({
       ) : !isAdmin ? (
         <div className="flex flex-wrap gap-2 px-6 py-5">
           {types.length === 0 ? (
-            <p className="text-[14px] text-ink-muted">אין עדיין סוגי עסקה מוגדרים.</p>
+            <p className="text-[14px] text-ink-muted">{emptyText}</p>
           ) : (
             types.map((t) => <Chip key={t}>{t}</Chip>)
           )}
@@ -266,20 +302,20 @@ function TextListCard({
               </Chip>
             ))}
             {types.length === 0 && (
-              <p className="text-[14px] text-ink-muted">אין עדיין סוגי עסקה ברשימה — הוסיפו למטה.</p>
+              <p className="text-[14px] text-ink-muted">{emptyText}</p>
             )}
           </div>
 
           <div className="flex items-end gap-2.5">
             <div className="max-w-xs flex-1">
               <label className="mb-1.5 block text-[12px] font-semibold text-ink-muted">
-                סוג עסקה חדש
+                {addLabel}
               </label>
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && add()}
-                placeholder="למשל החלפת בנק מלווה"
+                placeholder={placeholder}
                 className={cn(
                   'h-10 w-full rounded-md border border-field bg-surface px-3 text-[15px] text-ink',
                   'placeholder:text-ink-faint transition-colors duration-micro ease-standard',

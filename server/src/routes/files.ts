@@ -6,6 +6,7 @@ import { handler, HttpError } from '../lib/http.js'
 import { requireAuth } from '../middleware/auth.js'
 import { diff, logActivity } from '../lib/activity.js'
 import { parsePaging, parseSort } from '../lib/listing.js'
+import { withSeq } from '../lib/sequence.js'
 import { buildBankPackage } from '../services/filePackage.js'
 import { deleteFileDeep } from '../services/deletion.js'
 
@@ -199,17 +200,36 @@ filesRouter.get(
   }),
 )
 
+/** Only the opening form carries a bank name; every other write uses fileSchema. */
+const createSchema = fileSchema.extend({ bankName: z.string().trim().min(1).nullish() })
+
 filesRouter.post(
   '/',
   handler(async (req, res) => {
-    const data = fileSchema.parse(req.body)
+    const { bankName, ...data } = createSchema.parse(req.body)
 
     const client = await prisma.client.findUnique({ where: { id: data.clientId } })
     if (!client) throw new HttpError(400, 'הלקוח שנבחר לא קיים')
 
+    // A bank chosen on the opening form is the file's target bank, and the
+    // application to it is the first thing the office would open by hand
+    // anyway — so it is opened here, as a draft, rather than retyped.
+    const bank = bankName?.trim()
+      ? await prisma.bank.upsert({
+          where: { name: bankName.trim() },
+          update: {},
+          create: { name: bankName.trim() },
+        })
+      : null
+
     const file = await prisma.mortgageFile.create({
       // The clock on "how long has it stood here" starts now.
-      data: { ...data, fileNumber: await nextFileNumber(), stageEnteredAt: new Date() },
+      data: {
+        ...data,
+        ...(bank ? { targetBankId: bank.id } : {}),
+        fileNumber: await nextFileNumber(),
+        stageEnteredAt: new Date(),
+      },
       include: { client: { select: { id: true, fullName: true } } },
     })
     await logActivity({
@@ -218,6 +238,45 @@ filesRouter.post(
       actorId: req.user!.id,
       action: `פתיחת תיק ${file.fileNumber}`,
     })
+
+    if (bank) {
+      const application = await withSeq('bankApplication', file.id, (seq) =>
+        prisma.bankApplication.create({
+          data: {
+            fileId: file.id,
+            bankId: bank.id,
+            seq,
+            status: 'DRAFT',
+            // Seeded from the file so the same two numbers are not typed twice;
+            // both stay editable on the application itself.
+            requestedAmount: file.requestedAmount,
+            ltvPercent: file.ltvPercent,
+          },
+        }),
+      )
+      await logActivity({
+        entityType: 'BANK_APPLICATION',
+        entityId: application.id,
+        actorId: req.user!.id,
+        action: `פתיחת בקשה לבנק ${bank.name}`,
+      })
+    }
+
+    // Opening a file is the moment a lead stops being one.
+    if (client.leadStatus !== 'CONVERTED') {
+      await prisma.client.update({
+        where: { id: client.id },
+        data: { leadStatus: 'CONVERTED' },
+      })
+      await logActivity({
+        entityType: 'CLIENT',
+        entityId: client.id,
+        actorId: req.user!.id,
+        action: 'הליד הפך ללקוח',
+        changes: diff({ leadStatus: client.leadStatus }, { leadStatus: 'CONVERTED' }),
+      })
+    }
+
     res.status(201).json(file)
   }),
 )

@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js'
 import { handler, HttpError } from '../lib/http.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
 import { importBanks } from '../services/importBanks.js'
+import { getSetting } from './settings.js'
 
 export const banksRouter = Router()
 banksRouter.use(requireAuth)
@@ -18,20 +19,59 @@ const query = z.object({ q: z.string().trim().optional() })
  * meant to be typed into, not scrolled.
  */
 
+/**
+ * The lenders the office works with, as configured in Settings.
+ *
+ * The table itself holds every bank in the country once the official list is
+ * imported, which is the wrong thing to offer someone opening a file. The
+ * configured names are the whole menu; a row is created for a name the first
+ * time it is needed, so choosing one still yields a real bank to hang an
+ * application, a branch and a banker off.
+ */
+async function configuredBanks() {
+  const names = await getSetting<string[]>('banks')
+  if (!names?.length) return []
+
+  const rows = await prisma.bank.findMany({
+    where: { name: { in: names } },
+    select: { id: true, name: true, code: true },
+  })
+
+  const missing = names.filter((n) => !rows.some((r) => r.name === n))
+  if (missing.length) {
+    await prisma.bank.createMany({
+      data: missing.map((name) => ({ name })),
+      skipDuplicates: true,
+    })
+    return prisma.bank.findMany({
+      where: { name: { in: names } },
+      select: { id: true, name: true, code: true },
+    })
+  }
+  return rows
+}
+
 banksRouter.get(
   '/',
   handler(async (req, res) => {
     const { q } = query.parse(req.query)
+    const banks = await configuredBanks()
 
-    const banks = await prisma.bank.findMany({
-      where: q
-        ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { code: { startsWith: q } }] }
-        : undefined,
-      select: { id: true, name: true, code: true },
-      orderBy: { name: 'asc' },
-      take: LIMIT,
-    })
-    res.json(banks.map((b) => ({ id: b.id, label: b.name, hint: b.code })))
+    // Kept in the order the office wrote them in Settings, not alphabetical:
+    // the first name on that list is usually the one it uses most.
+    const names = await getSetting<string[]>('banks')
+    const ordered = names
+      .map((name) => banks.find((b) => b.name === name))
+      .filter((b): b is NonNullable<typeof b> => Boolean(b))
+
+    const term = q?.trim().toLowerCase()
+    const matched = term
+      ? ordered.filter(
+          (b) => b.name.toLowerCase().includes(term) || b.code?.startsWith(term),
+        )
+      : ordered
+
+    res.json(matched.slice(0, LIMIT).map((b) => ({ id: b.id, label: b.name, hint: b.code })))
   }),
 )
 

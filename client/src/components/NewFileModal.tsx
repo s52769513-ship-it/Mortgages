@@ -29,6 +29,7 @@ export function NewFileModal({
     propertyAddress: '',
     purchasePrice: '',
     requestedAmount: '',
+    bankName: '',
   })
 
   const { data: clients } = useQuery({
@@ -37,18 +38,32 @@ export function NewFileModal({
     enabled: open && !client,
   })
 
+  // The office's own shortlist, from Settings — not every bank in the country.
+  const { data: banks } = useQuery({
+    queryKey: ['banks'],
+    queryFn: () => api.get<{ id: string; label: string }[]>('/banks'),
+    enabled: open,
+    staleTime: 5 * 60_000,
+  })
+
   const create = useMutation({
     mutationFn: () =>
       api.post<MortgageFile>('/files', {
         ...form,
         purchasePrice: form.purchasePrice || null,
         requestedAmount: form.requestedAmount || null,
+        bankName: form.bankName || null,
       }),
     onSuccess: (file) => {
       queryClient.invalidateQueries({ queryKey: ['files'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['client'] })
-      notify('התיק נפתח', { detail: file.fileNumber })
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      notify('התיק נפתח', {
+        detail: form.bankName
+          ? `${file.fileNumber} · נפתחה בקשה ל${form.bankName}`
+          : file.fileNumber,
+      })
       onClose()
       navigate(`/files/${file.id}`)
     },
@@ -129,6 +144,15 @@ export function NewFileModal({
             onChange={(e) => setForm({ ...form, requestedAmount: e.target.value })}
           />
         </div>
+
+        <Select
+          label="בנק"
+          placeholder="ללא בנק בשלב זה"
+          hint="בחירת בנק פותחת עבורו מיד בקשה ראשונה כטיוטה, עם הסכום ואחוז המימון שמולאו כאן."
+          options={(banks ?? []).map((b) => ({ value: b.label, label: b.label }))}
+          value={form.bankName}
+          onChange={(e) => setForm({ ...form, bankName: e.target.value })}
+        />
       </form>
     </Modal>
   )

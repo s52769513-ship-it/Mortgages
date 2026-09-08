@@ -309,6 +309,16 @@ export function FilesPage() {
         ),
       },
       {
+        key: 'bank',
+        header: 'בנק',
+        width: '0.8fr',
+        render: (f) => (
+          <span className="block truncate text-[13.5px] text-ink-muted">
+            {f.targetBank?.name ?? '—'}
+          </span>
+        ),
+      },
+      {
         key: 'owner',
         header: 'אחראי',
         width: '0.8fr',

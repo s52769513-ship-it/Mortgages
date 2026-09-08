@@ -203,6 +203,13 @@ export function FileDetailPage() {
                   </span>
                 </span>
               )}
+              {file.targetBank && (
+                <span className="flex items-center gap-1.5">
+                  <Building2 className="size-3.5" />
+                  <span className="text-ink-subtle">בנק</span>
+                  <span className="font-medium text-ink">{file.targetBank.name}</span>
+                </span>
+              )}
               {file.executionDeadline && (
                 <span className="flex items-center gap-1.5">
                   <CalendarClock className="size-3.5" />
